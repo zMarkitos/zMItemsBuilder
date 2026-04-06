@@ -1,0 +1,102 @@
+# =====================================================
+# zMItemsBuilder - Archivo de idioma (ES)
+# =====================================================
+#
+# Este archivo contiene todos los mensajes traducibles del plugin.
+# Puedes personalizar completamente los textos, colores y formatos.
+#
+# -----------------------------------------------------
+# FORMATO Y COLORES
+# -----------------------------------------------------
+# - Soporta códigos de color de Minecraft usando "&" (ej: &a, &c, &7)
+# - Soporta colores HEX: &#RRGGBB
+# - Soporta formato MiniMessage:
+#   <gradient>, <bold>, <click>, <hover>, etc.
+#
+# Ejemplo:
+#   <gradient:#F13713:#C14C36>Texto</gradient>
+
+messages:
+  prefix: '<b><gradient:#F13713:#C14C36:#F13713>zMItemsBuilder</gradient></b> &8| &r'
+  success: "&aKit &f{kit} &aentregado correctamente. Objetos: &f{count}&a, soltados: &f{dropped}&a."
+  no-permission: "&cNo tienes permiso para hacer esto."
+  kit-not-found: "&cEl kit &f{kit} &cno existe."
+  reloaded: "&aConfiguración recargada correctamente."
+  usage: "&eUso: /zmitemsbuilder <create|reload>"
+  usage-create: "&eUso: /zmitemsbuilder create <kit> <prefijo>"
+  player-only: "&cSolo un jugador puede ejecutar este comando."
+  invalid-hex-prefix: "&cDebes incluir un color hex valido. Ejemplo: &f/zmitemsbuilder create especial (COLOR RGB HEXADECIMAL)"
+  update-title: "<bold><green>Hay una actualización</green></bold>"
+  update-subtitle: "&7Actual: &f{current_version} &8| &7Nueva: &a{latest_version}"
+  update-available: "&eHay una nueva versión disponible: &f{latest_version}"
+  update-link: "&7Abre la página de versión: &b<click:open_url:'{version_url}'><u>{version_url}</u></click>"
+  blocked-place: "&cEste item no se puede colocar."
+  blocked-craft: "&cEste item no se puede usar para craftear."
+  blocked-drop: "&cEste item no se puede tirar."
+  blocked-use: "&cEste item no se puede usar."
+  blocked-consume: "&cEste item no se puede consumir."
+  blocked-equip: "&cEste item no se puede equipar."
+  blocked-anvil: "&cEste item no se puede usar en yunque."
+  blocked-smithing: "&cEste item no se puede usar en la forja."
+  blocked-grindstone: "&cEste item no se puede usar en la piedra de afilar."
+  blocked-enchant: "&cEste item no se puede encantar."
+  blocked-brewing: "&cEste item no se puede usar en un soporte de pociones."
+  blocked-furnace: "&cEste item no se puede usar en hornos."
+
+enchantments:
+  protection: "Protección"
+  fire_protection: "Protección contra el Fuego"
+  feather_falling: "Caída de Pluma"
+  blast_protection: "Protección contra Explosiones"
+  projectile_protection: "Protección contra Proyectiles"
+  respiration: "Respiración"
+  aqua_affinity: "Afinidad Acuática"
+  thorns: "Espinas"
+  depth_strider: "Agilidad Acuática"
+  frost_walker: "Paso Helado"
+  binding_curse: "Maldición de Ligadura"
+  soul_speed: "Velocidad de Alma"
+  swift_sneak: "Sigilo Veloz"
+  sharpness: "Afilado"
+  smite: "Castigo"
+  bane_of_arthropods: "Perdición de los Artrópodos"
+  knockback: "Empuje"
+  fire_aspect: "Aspecto Ígneo"
+  looting: "Saqueo"
+  sweeping_edge: "Barrido"
+  efficiency: "Eficiencia"
+  silk_touch: "Toque de Seda"
+  unbreaking: "Irrompibilidad"
+  fortune: "Fortuna"
+  mending: "Reparación"
+  power: "Poder"
+  punch: "Golpe"
+  flame: "Llama"
+  infinity: "Infinidad"
+  luck_of_the_sea: "Suerte Marina"
+  lure: "Atracción"
+  channeling: "Canalización"
+  loyalty: "Lealtad"
+  riptide: "Propulsión Acuática"
+  impaling: "Empalamiento"
+  multishot: "Multidisparo"
+  quick_charge: "Carga Rápida"
+  piercing: "Perforación"
+  density: "Densidad"
+  breach: "Brecha"
+  wind_burst: "Explosión de Viento"
+  vanishing_curse: "Maldición de Desaparición"
+
+item-types:
+  helmet: "Casco"
+  chestplate: "Pechera"
+  leggings: "Grebas"
+  boots: "Botas"
+  sword: "Espada"
+  pickaxe: "Pico"
+  axe: "Hacha"
+  shovel: "Pala"
+  hoe: "Azada"
+  bow: "Arco"
+  crossbow: "Ballesta"
+  trident: "Tridente"

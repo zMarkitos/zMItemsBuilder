@@ -1,0 +1,509 @@
+# ======================================================================
+#       __  __ ___ _                     ____        _ _     _           
+#  ___|  \/  |_ _| |_ ___ _ __ ___  ___| __ ) _   _(_) | __| | ___ _ __ 
+# |_  / |\/| || || __/ _ \ '_ ` _ \/ __|  _ \| | | | | |/ _` |/ _ \ '__|
+#  / /| |  | || || ||  __/ | | | | \__ \ |_) | |_| | | | (_| |  __/ |   
+# /___|_|  |_|___|\__\___|_| |_| |_|___/____/ \__,_|_|_|\__,_|\___|_|   
+#                                                                       
+# ======================================================================
+#
+# Main configuration file of the plugin.
+# This file defines how items, kits, rarities, and global
+# formatting behave.
+#
+# A Spanish message file is available under: `lang/lang_ES.yml`
+#
+# ---------------------------------------------------------------------
+# WHAT CAN YOU CREATE?
+# ---------------------------------------------------------------------
+# - Armor sets (full armor automatically generated)
+# - Tool sets (axe, hoe, shovel)
+# - Single items (weapons, tools, etc.)
+# - Custom items (keys, coins, shop items)
+# - Decorative or restricted blocks (non-placeable/craftable)
+#
+# ---------------------------------------------------------------------
+# ITEM MODES
+# ---------------------------------------------------------------------
+# - `single`     → Creates one specific item
+# - `armor`  → Generates helmet, chestplate, leggings, boots
+# - `tools`   → Generates axe, hoe, shovel
+#
+# ---------------------------------------------------------------------
+# USEFUL PLACEHOLDERS
+# ---------------------------------------------------------------------
+# General:
+# - {kit}, {item_id}, {item_mode}
+# - {prefix_item}, {item_type}
+#
+# Visual / progression:
+# - {rarity}, {level}
+# - {primary_color}, {secondary_color}
+#
+# Item-specific:
+# - {piece}      → armor/tool part (helmet, axe, etc.)
+# - {enchants}   → formatted enchant list
+#
+# Notes:
+# - {level} can be displayed as normal numbers or Roman numerals
+# ======================================================================
+
+# Internal version (DO NOT MODIFY)
+config-version: 1
+
+settings:
+  # Language used by the plugin.
+  # Available: EN (English), ES (Spanish)
+  language: EN
+
+  # Enables Roman numerals for:
+  # - {level}
+  # - enchantment levels
+  use-roman-numerals: false
+
+  # Controls how secondary colors are generated from primary color.
+  # Modes:
+  # - LIGHTER        → brighter version
+  # - DARKER         → darker version
+  # - COMPLEMENTARY  → opposite color
+  secondary-color-mode: LIGHTER
+
+  # If disabled, any lore line using {rarity} will be skipped.
+  use-rarity: true
+
+  sound:
+    # Plays a sound when receiving items/kits
+    enabled: true
+
+    # Bukkit sound name
+    type: ENTITY_EXPERIENCE_ORB_PICKUP
+
+    # Sound volume (0.0 - 1.0+)
+    volume: 1.0
+
+    # Sound pitch (0.5 - 2.0 typical range)
+    pitch: 1.0
+
+# -----------------------------------------------------
+# UPDATE CHECKER
+# Checks Modrinth in the background and notifies admins
+# when a newer release is available.
+# -----------------------------------------------------
+update-check:
+  # Enables or disables the update checker.
+  enabled: true
+
+# -----------------------------------------------------
+# RARITY FORMATS
+# Used in: kits.<kit>.rarity
+# -----------------------------------------------------
+rarity:
+  special: "★★★&7★★"
+  objects: "★★★★&7★"
+  levels: ""
+
+# -----------------------------------------------------
+# GLOBAL DISPLAY SETTINGS
+# Used as fallback if an item does not define its own
+# name or lore.
+# -----------------------------------------------------
+display:
+  # Default item name format.
+  # Can be overridden per item using `name:`
+  name-template: "&f{item_type} &8▸ {prefix_item}"
+
+  # Gradient support:
+  # - {gradient:Text}
+  #
+  # Uses the same RGB colors from the kit prefix.
+  #
+  # Example:
+  #   &l{gradient:Enchantments:}
+  #   &l{gradient:Rarity:}
+
+  # Format for each enchant line inside {enchants}
+  enchant-format: "   {primary_color}• &f{enchant_name} {secondary_color}{level}"
+
+  # Default lore (only used if item doesn't define one)
+  lore-template:
+    - "&7"
+    - " {primary_color}&l🕮&r {primary_color}Enchantments:"
+    - "{enchants}"
+    - "&7"
+    - " {primary_color}⌛ &fRarity: {primary_color}{rarity}"
+    - "&7"
+    - " {primary_color}₪ &fObtain this by capturing"
+    - " &fthe KOTHs in {secondary_color}minapvp&f."
+
+# -----------------------------------------------------
+# REUSABLE ITEMS
+# These items can be reused across multiple kits.
+# -----------------------------------------------------
+#
+# -----------------------------------------------------
+# BEHAVIOR FLAGS (restrictions)
+# -----------------------------------------------------
+# - NO_PLACE       → cannot be placed as a block
+# - NO_CRAFT       → cannot be used in crafting
+# - NO_DROP        → cannot be dropped
+# - NO_USE         → disables right-click usage
+# - NO_CONSUME     → prevents eating/drinking
+# - NO_EQUIP       → blocks armor equip/unequip
+# - NO_ANVIL       → disables anvil usage
+# - NO_SMITHING    → disables smithing table
+# - NO_GRINDSTONE  → disables grindstone
+# - NO_ENCHANT     → disables enchant table
+# - NO_BREWING     → disables brewing stand
+# - NO_FURNACE     → disables furnace/smelting
+#
+# -----------------------------------------------------
+# ITEM IDENTITY / VISUALS
+# -----------------------------------------------------
+# - id_item            → unique internal ID (NBT/PDC)
+# - custom-model-data  → model ID from resource pack
+items:
+  special_armor:
+    mode: armor
+    base-material: NETHERITE
+    pieces: [helmet, chestplate, leggings, boots]
+    name: "&f{item_type} &8▸ {prefix_item}"
+    lore:
+      - ""
+      - " {gradient:🕮 Enchantments:}"
+      - "{enchants}"
+      - ""
+      - " {gradient:⚡ Abilities:}"
+      - "   {primary_color}&l•&r &fExtra hearts {secondary_color}+5"
+      - "   {primary_color}&l•&r &fStrength level {secondary_color}2"
+      - "   {primary_color}&l•&r &fSpeed level {secondary_color}2"
+      - "   {primary_color}&l•&r &fResistance level {secondary_color}2"
+      - ""
+      - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
+      - ""
+      - " {primary_color}₪ &fObtain this by buying"
+      - " &fit at {secondary_color}store.servername.net&f."
+    enchants:
+      protection: 10
+      unbreaking: 5
+      mending: 5
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    behavior-flags: []
+
+  special_tools:
+    mode: tools
+    base-material: NETHERITE
+    pieces: [axe, hoe, shovel]
+    name: "&f{item_type} &8▸ {prefix_item}"
+    lore:
+      - ""
+      - " {gradient:🕮 Enchantments:}"
+      - "{enchants}"
+      - ""
+      - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
+      - ""
+      - " {primary_color}₪ &fObtain this by buying"
+      - " &fit at {secondary_color}store.servername.net&f."
+    enchants:
+      efficiency: 10
+      unbreaking: 5
+      mending: 3
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    behavior-flags: []
+
+  special_sword:
+    mode: single
+    material: NETHERITE_SWORD
+    name: "&f{item_type} &8▸ {prefix_item}"
+    lore:
+      - ""
+      - " {gradient:🕮 Enchantments:}"
+      - "{enchants}"
+      - ""
+      - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
+      - ""
+      - " {primary_color}₪ &fObtain this by buying"
+      - " &fit at {secondary_color}store.servername.net&f."
+    unbreakable: true
+    enchants:
+      sharpness: 8
+      looting: 5
+      sweeping_edge: 3
+      fire_aspect: 2
+      unbreaking: 5
+      mending: 5
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    behavior-flags: []
+
+  special_pickaxe:
+    mode: single
+    material: NETHERITE_PICKAXE
+    name: "&f{item_type} &8▸ {prefix_item}"
+    lore:
+      - ""
+      - " {gradient:🕮 Enchantments:}"
+      - "{enchants}"
+      - ""
+      - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
+      - ""
+      - " {primary_color}₪ &fObtain this by buying"
+      - " &fit at {secondary_color}store.servername.net&f."
+    enchants:
+      efficiency: 10
+      fortune: 3
+      unbreaking: 5
+      mending: 3
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    behavior-flags: []
+
+## LEVEL ITEMS
+  levels_set:
+    mode: armor
+    base-material: NETHERITE
+    pieces: [helmet, chestplate, leggings, boots]
+    name: "&f{item_type} &8▸ {prefix_item} {level}"
+    lore:
+      - ""
+      - " {gradient:🕮 Enchantments:}"
+      - "{enchants}"
+    unbreakable: true
+
+    # -----------------------------------------------------
+    # SCALABLE ENCHANT SYSTEM
+    # -----------------------------------------------------
+    # You can define dynamic enchantments that scale with {level}.
+    #
+    # Available formats:
+    #
+    # 1) STATIC VALUE:
+    #    enchant: number
+    #    → Always the same level
+    #
+    # 2) LINEAR SCALING:
+    #    base: <number>
+    #    per-level: <number>
+    #    max: <number>
+    #
+    #    Formula:
+    #    final_level = base + (level - 1) * per-level
+    #    → Capped by `max`
+    #
+    #    Example:
+    #    base: 4, per-level: 1
+    #    Level 1 → 4
+    #    Level 2 → 5
+    #    Level 3 → 6
+    #
+    # 3) INTERVAL SCALING:
+    #    base: <number>
+    #    every: <levels>
+    #    bonus: <number>
+    #    max: <number>
+    #
+    #    Formula:
+    #    final_level = base + (floor((level - 1) / every) * bonus)
+    #
+    #    → Increases only every X levels
+    #
+    #    Example:
+    #    base: 1, every: 3, bonus: 1
+    #    Level 1 → 1
+    #    Level 3 → 2
+    #    Level 6 → 3
+    #
+    # Notes:
+    # - `max` is optional but highly recommended to avoid overpowered items
+    # - You can mix different scaling types in the same item
+    # - If no scaling is defined, the enchant is treated as static
+    # -----------------------------------------------------
+
+    enchants:
+      protection:
+        base: 4
+        per-level: 1
+        max: 10
+      fire_protection:
+        base: 1
+        every: 3
+        bonus: 1
+        max: 4
+      blast_protection:
+        base: 1
+        every: 3
+        bonus: 1
+        max: 4
+      projectile_protection:
+        base: 1
+        every: 3
+        bonus: 1
+        max: 4
+      mending: 1
+
+  special_key:
+    mode: single
+    material: RED_DYE
+    display-type: "Key"
+    id_item: "key_special"
+    custom-model-data: 1001
+    name: "&f{item_type} &8▸ &l{gradient:SPECIAL}"
+    lore:
+      - "&8[ REWARDS 2026 ]"
+      - ""
+      - " {primary_color}✉ What is it for?"
+      - "  {primary_color}• &fUse it to receive"
+      - "  {primary_color}• &fgreat items."
+      - ""
+      - " {primary_color}✉ Where do I use it?"
+      - "  {primary_color}• &fTrade this key at"
+      - "  {primary_color}• &fcrate /warp crates."
+      - ""
+      - " {primary_color}⌛ &fRarity: {secondary_color}{rarity}"
+      - ""
+      - "{primary_color}Click the crate!"
+    glow: true
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    behavior-flags:
+      - NO_CRAFT
+      - NO_USE
+
+  special_coin:
+    mode: single
+    material: REDSTONE_BLOCK
+    display-type: "Coin"
+    id_item: "coin_special"
+    name: "&f{item_type} &8▸ &l{gradient:SPECIAL}"
+    lore:
+      - "&8[ REWARDS 2026 ]"
+      - ""
+      - " {primary_color}✉ What is it for?"
+      - "  {primary_color}• &fUse it to improve"
+      - "  {primary_color}• &fall your items."
+      - ""
+      - " {primary_color}✉ Where do I use it?"
+      - "  {primary_color}• &fTrade this coin at"
+      - "  {primary_color}• &f/warp trades."
+      - ""
+      - " {primary_color}⌛ &fRarity: {secondary_color}{rarity}"
+      - ""
+      - "{primary_color}Click the crate!"
+    amount: 16
+    # Must be numeric. Use a unique integer per visual model.
+    custom-model-data: 1002
+    glow: true
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    behavior-flags:
+      - NO_PLACE
+      - NO_CRAFT
+
+# -----------------------------------------------------
+# KITS
+# -----------------------------------------------------
+# A kit is a group of items given together.
+#
+# Each kit:
+# - References items from the `items:` section
+# - Applies a rarity (visual + formatting)
+# - Can optionally define a level for scaling enchants
+#
+# -----------------------------------------------------
+# KEY FIELDS
+# -----------------------------------------------------
+# rarity:
+#   → Links to the `rarity:` section
+#   → Used for visual display ({rarity})
+#
+# level:
+#   → Used ONLY for items with scalable enchants
+#   → Affects formulas like:
+#     - per-level scaling
+#     - interval scaling (every X levels)
+#
+# items:
+#   → List of item IDs defined in `items:`
+#   → Items are generated in the order listed
+#
+# -----------------------------------------------------
+# IMPORTANT NOTES
+# -----------------------------------------------------
+# - You can reuse the same item in multiple kits
+# - The same item behaves differently depending on `level`
+# - If a kit has no `level`, scaling systems are ignored
+# - Naming kits like level_1, level_2, etc. is just convention
+#   (you can name them however you want)
+# -----------------------------------------------------
+kits:
+
+  # ---------------------------------------------------
+  # SPECIAL KIT
+  # Fixed items (no scaling)
+  # ---------------------------------------------------
+  special:
+    rarity: special
+    items:
+      - special_armor
+      - special_tools
+      - special_sword
+      - special_pickaxe
+
+  # ---------------------------------------------------
+  # OBJECTS KIT
+  # Utility items (keys, coins, etc.)
+  # Level is optional here (used only if needed)
+  # ---------------------------------------------------
+  objects:
+    rarity: objects
+    level: 1
+    items:
+      - special_key
+      - special_coin
+
+  # ---------------------------------------------------
+  # LEVEL-BASED KITS
+  # These use scalable enchantments via {level}
+  # ---------------------------------------------------
+  # Each level increases item power based on formulas
+  # defined in the item enchant configuration
+  # ---------------------------------------------------
+
+  level_1:
+    rarity: levels
+    level: 1
+    items:
+      - levels_set
+      - levels_sword
+      - levels_pickaxe
+
+  level_2:
+    rarity: levels
+    level: 2
+    items:
+      - levels_set
+      - levels_sword
+      - levels_pickaxe
+
+  level_3:
+    rarity: levels
+    level: 3
+    items:
+      - levels_set
+      - levels_sword
+      - levels_pickaxe
+
+  level_4:
+    rarity: levels
+    level: 4
+    items:
+      - levels_set
+      - levels_sword
+      - levels_pickaxe

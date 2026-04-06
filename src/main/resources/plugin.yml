@@ -1,0 +1,26 @@
+name: zMItemsBuilder
+version: ${project.version}
+main: dev.zm.itemsbuilder.zMItemsBuilder
+api-version: "1.21"
+author: zMarkitos_
+description: Create and automate custom items, sets and scalable progression with ease.
+
+commands:
+  zmitemsbuilder:
+    description: Main command for zMItemsBuilder.
+    usage: /zmitemsbuilder <create|reload>
+    aliases: [zmitems, zmib]
+    permission: zmitemsbuilder.use
+permissions:
+  zmitemsbuilder.use:
+    description: Allows base zMItemsBuilder command usage.
+    default: true
+  zmitemsbuilder.create:
+    description: Allows creating items.
+    default: op
+  zmitemsbuilder.reload:
+    description: Allows reloading zMItemsBuilder.
+    default: op
+  zmitemsbuilder.update:
+    description: Allows receiving update notifications.
+    default: op
