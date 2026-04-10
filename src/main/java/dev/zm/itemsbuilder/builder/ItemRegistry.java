@@ -5,6 +5,8 @@ import dev.zm.itemsbuilder.builder.model.EnchantLevelRule;
 import dev.zm.itemsbuilder.builder.model.ItemDefinition;
 import dev.zm.itemsbuilder.builder.model.ItemMode;
 import dev.zm.itemsbuilder.builder.model.ItemBundleDefinition;
+import dev.zm.itemsbuilder.builder.model.AttributeSettings;
+import dev.zm.itemsbuilder.builder.model.PotionEffectSettings;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -17,32 +19,31 @@ import org.bukkit.configuration.ConfigurationSection;
 public final class ItemRegistry {
 
     private static final Set<String> LEGACY_ITEM_KEYS = Set.of(
-        "mode",
-        "type",
-        "material",
-        "base-material",
-        "material-base",
-        "display-type",
-        "item-type",
-        "name",
-        "lore",
-        "amount",
-        "unbreakable",
-        "glow",
-        "custom-model-data",
-        "custom_model_data",
-        "customModelData",
-        "id_item",
-        "id-item",
-        "idItem",
-        "item-flags",
-        "behavior-flags",
-        "template",
-        "rarity",
-        "level",
-        "pieces",
-        "enchants"
-    );
+            "mode",
+            "type",
+            "material",
+            "base-material",
+            "material-base",
+            "display-type",
+            "item-type",
+            "name",
+            "lore",
+            "amount",
+            "unbreakable",
+            "glow",
+            "custom-model-data",
+            "custom_model_data",
+            "customModelData",
+            "id_item",
+            "id-item",
+            "idItem",
+            "item-flags",
+            "behavior-flags",
+            "template",
+            "rarity",
+            "level",
+            "pieces",
+            "enchants");
 
     private final zMItemsBuilder plugin;
     private final Map<String, ItemBundleDefinition> kits = new LinkedHashMap<>();
@@ -144,7 +145,8 @@ public final class ItemRegistry {
         return itemIds;
     }
 
-    private void registerLegacyItem(ArrayList<String> itemIds, String itemId, ConfigurationSection section, ItemMode mode) {
+    private void registerLegacyItem(ArrayList<String> itemIds, String itemId, ConfigurationSection section,
+            ItemMode mode) {
         if (section == null || section.getKeys(false).isEmpty()) {
             return;
         }
@@ -155,24 +157,25 @@ public final class ItemRegistry {
         }
 
         ItemDefinition definition = new ItemDefinition(
-            itemId,
-            mode,
-            material.toUpperCase(Locale.ROOT),
-            material.toUpperCase(Locale.ROOT),
-            null,
-            null,
-            List.of(),
-            false,
-            parseLegacyEnchantments(section),
-            1,
-            false,
-            false,
-            null,
-            itemId,
-            List.of(),
-            List.of(),
-            List.of()
-        );
+                itemId,
+                mode,
+                material.toUpperCase(Locale.ROOT),
+                material.toUpperCase(Locale.ROOT),
+                null,
+                null,
+                List.of(),
+                false,
+                parseLegacyEnchantments(section),
+                1,
+                false,
+                false,
+                null,
+                itemId,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of());
         items.put(definition.id(), definition);
         itemIds.add(definition.id());
     }
@@ -192,31 +195,36 @@ public final class ItemRegistry {
         int amount = Math.max(1, section.getInt("amount", 1));
         boolean unbreakable = section.getBoolean("unbreakable", false);
         boolean glow = section.getBoolean("glow", false);
-        Integer customModelData = parseOptionalInteger(section, "custom-model-data", "custom_model_data", "customModelData");
+        Integer customModelData = parseOptionalInteger(section, "custom-model-data", "custom_model_data",
+                "customModelData");
         String itemIdentifier = resolveItemIdentifier(id, section);
         List<String> itemFlags = section.getStringList("item-flags");
         List<String> behaviorFlags = section.getStringList("behavior-flags");
         List<String> pieces = section.getStringList("pieces");
+        List<PotionEffectSettings> customEffects = parsePotionEffects(
+                section.getConfigurationSection("potion-effects"));
+        List<AttributeSettings> attributes = parseAttributes(section.getConfigurationSection("attributes"));
 
         return new ItemDefinition(
-            id,
-            mode,
-            material == null ? null : material.toUpperCase(Locale.ROOT),
-            baseMaterial == null ? null : baseMaterial.toUpperCase(Locale.ROOT),
-            displayName,
-            displayType,
-            lore,
-            loreDefined,
-            enchantments,
-            amount,
-            unbreakable,
-            glow,
-            customModelData,
-            itemIdentifier,
-            itemFlags,
-            behaviorFlags,
-            pieces
-        );
+                id,
+                mode,
+                material == null ? null : material.toUpperCase(Locale.ROOT),
+                baseMaterial == null ? null : baseMaterial.toUpperCase(Locale.ROOT),
+                displayName,
+                displayType,
+                lore,
+                loreDefined,
+                enchantments,
+                amount,
+                unbreakable,
+                glow,
+                customModelData,
+                itemIdentifier,
+                itemFlags,
+                behaviorFlags,
+                pieces,
+                customEffects,
+                attributes);
     }
 
     private String resolveItemIdentifier(String fallbackId, ConfigurationSection section) {
@@ -273,8 +281,8 @@ public final class ItemRegistry {
         }
         for (String key : section.getKeys(false)) {
             EnchantLevelRule rule = section.isConfigurationSection(key)
-                ? EnchantLevelRule.fromSection(section.getConfigurationSection(key))
-                : EnchantLevelRule.from(section.get(key));
+                    ? EnchantLevelRule.fromSection(section.getConfigurationSection(key))
+                    : EnchantLevelRule.from(section.get(key));
             enchantments.put(key.toLowerCase(Locale.ROOT), rule);
         }
         return enchantments;
@@ -295,5 +303,38 @@ public final class ItemRegistry {
             }
         }
         return enchantments;
+    }
+
+    private List<PotionEffectSettings> parsePotionEffects(ConfigurationSection section) {
+        if (section == null)
+            return List.of();
+        List<PotionEffectSettings> effects = new ArrayList<>();
+        for (String key : section.getKeys(false)) {
+            ConfigurationSection eff = section.getConfigurationSection(key);
+            if (eff != null) {
+                String type = eff.getString("type", key);
+                int durationSeconds = eff.getInt("duration", 10);
+                int amplifier = Math.max(1, eff.getInt("amplifier", 1)) - 1;
+                effects.add(new PotionEffectSettings(type, durationSeconds * 20, amplifier));
+            }
+        }
+        return effects;
+    }
+
+    private List<AttributeSettings> parseAttributes(ConfigurationSection section) {
+        if (section == null)
+            return List.of();
+        List<AttributeSettings> attributes = new ArrayList<>();
+        for (String key : section.getKeys(false)) {
+            ConfigurationSection attr = section.getConfigurationSection(key);
+            if (attr != null) {
+                String attribute = attr.getString("attribute", key);
+                double amount = attr.getDouble("amount", 0.0);
+                String operation = attr.getString("operation", "ADD_NUMBER");
+                String slot = attr.getString("slot", "ALL");
+                attributes.add(new AttributeSettings(attribute, amount, operation, slot));
+            }
+        }
+        return attributes;
     }
 }

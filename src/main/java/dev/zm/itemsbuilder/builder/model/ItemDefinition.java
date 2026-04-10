@@ -23,7 +23,9 @@ public record ItemDefinition(
     String itemIdentifier,
     List<String> itemFlags,
     List<String> behaviorFlags,
-    List<String> pieces
+    List<String> pieces,
+    List<PotionEffectSettings> customEffects,
+    List<AttributeSettings> attributes
 ) {
 
     public ItemDefinition {
@@ -35,6 +37,8 @@ public record ItemDefinition(
         itemFlags = itemFlags == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(itemFlags));
         behaviorFlags = behaviorFlags == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(behaviorFlags));
         pieces = pieces == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(pieces));
+        customEffects = customEffects == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(customEffects));
+        attributes = attributes == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(attributes));
     }
 
     private static String normalizeIdentifier(String raw) {

@@ -49,7 +49,7 @@
 # ======================================================================
 
 # Internal version (DO NOT MODIFY)
-config-version: 1
+config-version: 2
 
 settings:
   # Language used by the plugin.
@@ -174,9 +174,9 @@ items:
       - ""
       - " {gradient:⚡ Abilities:}"
       - "   {primary_color}&l•&r &fExtra hearts {secondary_color}+5"
-      - "   {primary_color}&l•&r &fStrength level {secondary_color}2"
-      - "   {primary_color}&l•&r &fSpeed level {secondary_color}2"
-      - "   {primary_color}&l•&r &fResistance level {secondary_color}2"
+      - "   {primary_color}&l•&r &fStrength level {secondary_color}+2%"
+      - "   {primary_color}&l•&r &fSpeed level {secondary_color}+2%"
+      - "   {primary_color}&l•&r &fResistance level {secondary_color}+2%"
       - ""
       - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
       - ""
@@ -187,9 +187,37 @@ items:
       unbreaking: 5
       mending: 5
     item-flags:
-      - HIDE_ATTRIBUTES
       - HIDE_ENCHANTS
     behavior-flags: []
+    # -----------------------------------------------------
+    # ATTRIBUTES (Passive bonuses)
+    # -----------------------------------------------------
+    # You can apply native Minecraft attributes to any item.
+    # - attribute: The Bukkit Attribute (e.g. GENERIC_MAX_HEALTH)
+    # - amount: The bonus value you want to add
+    # - operation: Usually ADD_NUMBER
+    # - slot: Where it applies (e.g. HELMET, CHESTPLATE, LEGGINGS, BOOTS, MAINHAND, OFFHAND, ALL, ANY)
+    attributes:
+      max_health:
+        attribute: MAX_HEALTH
+        amount: 10.0
+        operation: ADD_NUMBER
+        slot: ALL
+      strength:
+        attribute: ATTACK_DAMAGE
+        amount: 0.02
+        operation: ADD_NUMBER
+        slot: ANY
+      speed:
+        attribute: MOVEMENT_SPEED
+        amount: 0.02
+        operation: ADD_NUMBER
+        slot: LEGGINGS
+      resistance:
+        attribute: KNOCKBACK_RESISTANCE
+        amount: 0.02
+        operation: ADD_NUMBER
+        slot: CHESTPLATE
 
   special_tools:
     mode: tools
@@ -262,6 +290,46 @@ items:
       - HIDE_ATTRIBUTES
       - HIDE_ENCHANTS
     behavior-flags: []
+
+  special_elixir:
+    mode: single
+    material: POTION
+    display-type: "Elixir"
+    name: "&f{item_type} &8▸ &l{gradient:SPECIAL}"
+    lore:
+      - ""
+      - " {gradient:⚡ Effects on consumption:}"
+      - "   {primary_color}&l•&r &fRegeneration II {secondary_color}(0:10)"
+      - "   {primary_color}&l•&r &fStrength II {secondary_color}(0:10)"
+      - "   {primary_color}&l•&r &fAbsorption {secondary_color}(2:00)"
+      - ""
+      - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
+      - ""
+      - " {primary_color}₪ &fDrink to heal rapidly!"
+    glow: true
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    # -----------------------------------------------------
+    # POTION EFFECTS (Consumables)
+    # -----------------------------------------------------
+    # Effects automatically applied to the player when eating or drinking the item.
+    # - type: PotionEffectType (e.g. REGENERATION, ABSORPTION, SPEED)
+    # - duration: Duration of the effect in SECONDS
+    # - amplifier: The level of the effect (0 = Level I, 1 = Level II, etc.)
+    potion-effects:
+      regen:
+        type: REGENERATION
+        duration: 10 # 10 seconds
+        amplifier: 2
+      absorp:
+        type: ABSORPTION
+        duration: 120 # 2 minutes
+        amplifier: 1
+      strength:
+        type: STRENGTH
+        duration: 10 # 10 seconds
+        amplifier: 2
 
 ## LEVEL ITEMS
   levels_set:
@@ -455,6 +523,7 @@ kits:
       - special_tools
       - special_sword
       - special_pickaxe
+      - special_elixir
 
   # ---------------------------------------------------
   # OBJECTS KIT
@@ -469,7 +538,7 @@ kits:
       - special_coin
 
   # ---------------------------------------------------
-  # LEVEL-BASED KITS
+  # LEVEL-BASED KITS (Example "For FullPvPs ;D")
   # These use scalable enchantments via {level}
   # ---------------------------------------------------
   # Each level increases item power based on formulas

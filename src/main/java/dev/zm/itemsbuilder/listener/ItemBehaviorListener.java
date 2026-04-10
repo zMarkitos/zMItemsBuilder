@@ -23,6 +23,12 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.Material;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.InventoryType.SlotType;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
+import dev.zm.itemsbuilder.builder.model.PotionEffectSettings;
+import dev.zm.itemsbuilder.util.ItemIdentityStore;
 
 public final class ItemBehaviorListener implements Listener {
 
@@ -67,6 +73,24 @@ public final class ItemBehaviorListener implements Listener {
         if (ItemFlagStore.hasAny(plugin, event.getItem(), ItemBehaviorFlag.NO_CONSUME)) {
             event.setCancelled(true);
             event.getPlayer().sendMessage(plugin.language().message("blocked-consume"));
+            return;
+        }
+
+        String itemId = ItemIdentityStore.read(plugin, event.getItem());
+        if (itemId != null) {
+            plugin.itemRegistry().getItem(itemId).ifPresent(definition -> {
+                if (definition.customEffects() != null && !definition.customEffects().isEmpty()) {
+                    for (PotionEffectSettings eff : definition.customEffects()) {
+                        try {
+                            NamespacedKey key = NamespacedKey.minecraft(eff.type().toLowerCase(java.util.Locale.ROOT));
+                            PotionEffectType type = Registry.POTION_EFFECT_TYPE.get(key);
+                            if (type != null) {
+                                event.getPlayer().addPotionEffect(new PotionEffect(type, eff.durationTicks(), eff.amplifier()));
+                            }
+                        } catch (Exception ignored) { }
+                    }
+                }
+            });
         }
     }
 

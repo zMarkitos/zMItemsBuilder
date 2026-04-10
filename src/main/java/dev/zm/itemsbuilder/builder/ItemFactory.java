@@ -25,6 +25,18 @@ import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeModifier;
+import org.bukkit.Color;
+import org.bukkit.inventory.EquipmentSlotGroup;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
+import dev.zm.itemsbuilder.builder.model.AttributeSettings;
+import dev.zm.itemsbuilder.builder.model.PotionEffectSettings;
+import java.util.UUID;
 
 public final class ItemFactory {
 
@@ -47,8 +59,8 @@ public final class ItemFactory {
             for (ArmorPiece piece : selectedArmorPieces(definition)) {
                 String fullName = definition.baseMaterial() + "_" + piece.suffix();
                 ItemResolver.material(fullName)
-                    .map(material -> createConfiguredItem(material, definition, context, piece.name()))
-                    .ifPresent(items::add);
+                        .map(material -> createConfiguredItem(material, definition, context, piece.name()))
+                        .ifPresent(items::add);
             }
             return items;
         }
@@ -60,8 +72,8 @@ public final class ItemFactory {
             for (ToolPiece piece : selectedToolPieces(definition)) {
                 String fullName = definition.baseMaterial() + "_" + piece.suffix();
                 ItemResolver.material(fullName)
-                    .map(material -> createConfiguredItem(material, definition, context, piece.name()))
-                    .ifPresent(items::add);
+                        .map(material -> createConfiguredItem(material, definition, context, piece.name()))
+                        .ifPresent(items::add);
             }
             return items;
         }
@@ -72,29 +84,33 @@ public final class ItemFactory {
         }
 
         ItemResolver.material(definition.material())
-            .map(material -> createConfiguredItem(material, definition, context, null))
-            .ifPresentOrElse(
-                items::add,
-                () -> plugin.getLogger().warning("Invalid material for item: " + definition.id() + " -> " + definition.material())
-            );
+                .map(material -> createConfiguredItem(material, definition, context, null))
+                .ifPresentOrElse(
+                        items::add,
+                        () -> plugin.getLogger().warning(
+                                "Invalid material for item: " + definition.id() + " -> " + definition.material()));
         return items;
     }
 
-    private ItemStack createConfiguredItem(Material material, ItemDefinition definition, ItemBuildContext context, String pieceKey) {
+    private ItemStack createConfiguredItem(Material material, ItemDefinition definition, ItemBuildContext context,
+            String pieceKey) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
 
-        Map<String, Integer> validEnchantments = applyEnchantments(meta, definition.enchantments(), definition.glow(), context.level());
+        Map<String, Integer> validEnchantments = applyEnchantments(meta, definition.enchantments(), definition.glow(),
+                context.level());
         applyBehaviorFlags(meta, definition.behaviorFlags());
+        applyAttributes(meta, definition.attributes(), pieceKey, material);
+        applyPotionEffects(meta, definition.customEffects());
         Map<String, String> placeholders = basePlaceholders(material, definition, context, pieceKey);
         String displayNameTemplate = definition.displayName();
         if (displayNameTemplate == null || displayNameTemplate.isBlank()) {
             displayNameTemplate = plugin.getConfig().getString(
-                "display.name-template",
-                plugin.getConfig().getString("esthetic.name-format", "{item_type}")
-            );
+                    "display.name-template",
+                    plugin.getConfig().getString("esthetic.name-format", "{item_type}"));
         }
-        String resolvedDisplayName = applyGradients(PlaceholderUtils.replace(displayNameTemplate, placeholders), context.prefixGradientColors());
+        String resolvedDisplayName = applyGradients(PlaceholderUtils.replace(displayNameTemplate, placeholders),
+                context.prefixGradientColors());
         meta.displayName(TextUtils.toItemComponent(resolvedDisplayName));
         meta.lore(buildLore(definition, context, placeholders, validEnchantments));
 
@@ -114,7 +130,159 @@ public final class ItemFactory {
         return item;
     }
 
-    private Map<String, Integer> applyEnchantments(ItemMeta meta, Map<String, EnchantLevelRule> source, boolean glow, int level) {
+    private void applyAttributes(ItemMeta meta, List<AttributeSettings> attributes, String pieceKey,
+            Material material) {
+        if (attributes == null || attributes.isEmpty())
+            return;
+
+        // First restore all default attributes of the material
+        for (org.bukkit.inventory.EquipmentSlot defaultSlot : org.bukkit.inventory.EquipmentSlot.values()) {
+            com.google.common.collect.Multimap<Attribute, AttributeModifier> defaultModifiers = material
+                    .getDefaultAttributeModifiers(defaultSlot);
+            for (java.util.Map.Entry<Attribute, AttributeModifier> entry : defaultModifiers.entries()) {
+                meta.addAttributeModifier(entry.getKey(), entry.getValue());
+            }
+        }
+        for (AttributeSettings attrConfig : attributes) {
+            String attrName = attrConfig.attribute().toUpperCase(java.util.Locale.ROOT);
+            Attribute attribute = null;
+            try {
+                attribute = Attribute.valueOf(attrName);
+            } catch (IllegalArgumentException e1) {
+                try {
+                    attribute = Attribute.valueOf("GENERIC_" + attrName);
+                } catch (IllegalArgumentException e2) {
+                    plugin.getLogger().warning("Invalid attribute configuration: " + attrConfig.attribute());
+                    continue;
+                }
+            }
+
+            try {
+                String opName = attrConfig.operation().toUpperCase(java.util.Locale.ROOT);
+                AttributeModifier.Operation operation = null;
+                try {
+                    operation = AttributeModifier.Operation.valueOf(opName);
+                } catch (IllegalArgumentException e) {
+                    // Try mapping common legacy/new names
+                    String mappedOp = switch (opName) {
+                        case "ADD_NUMBER", "ADDITION" -> "ADD_VALUE";
+                        case "ADD_SCALAR", "MULTIPLY_BASE" -> "ADD_MULTIPLIED_BASE";
+                        case "MULTIPLY_SCALAR_1", "MULTIPLY_TOTAL" -> "ADD_MULTIPLIED_TOTAL";
+                        default -> null;
+                    };
+                    if (mappedOp != null) {
+                        try {
+                            operation = AttributeModifier.Operation.valueOf(mappedOp);
+                        } catch (IllegalArgumentException ignored) {
+                        }
+                    }
+                }
+
+                if (operation == null) {
+                    java.util.StringJoiner joiner = new java.util.StringJoiner(", ");
+                    for (AttributeModifier.Operation op : AttributeModifier.Operation.values()) {
+                        joiner.add(op.name());
+                    }
+                    throw new IllegalArgumentException(
+                            "Unknown operation: " + opName + ". Valid names: " + joiner.toString());
+                }
+
+                EquipmentSlotGroup slotGroup = parseSlotGroup(attrConfig.slot(), pieceKey);
+
+                // Filter attributes to only apply to the relevant piece
+                if (pieceKey != null && attrConfig.slot() != null
+                        && !attrConfig.slot().equalsIgnoreCase("ALL")
+                        && !attrConfig.slot().equalsIgnoreCase("ANY")) {
+                    if (!slotGroup.equals(parseSlotFromPiece(pieceKey))) {
+                        continue;
+                    }
+                }
+
+                NamespacedKey key = new NamespacedKey(plugin,
+                        "custom_attr_" + UUID.randomUUID().toString().substring(0, 8));
+                AttributeModifier modifier = new AttributeModifier(key, attrConfig.amount(), operation, slotGroup);
+                meta.addAttributeModifier(attribute, modifier);
+            } catch (IllegalArgumentException e) {
+                plugin.getLogger().warning(e.getMessage());
+            }
+        }
+    }
+
+    private EquipmentSlotGroup parseSlotGroup(String rawSlot, String pieceKey) {
+        if (rawSlot == null || rawSlot.isBlank() || rawSlot.equalsIgnoreCase("ALL")
+                || rawSlot.equalsIgnoreCase("ANY")) {
+            if (pieceKey != null) {
+                return parseSlotFromPiece(pieceKey);
+            }
+            return EquipmentSlotGroup.ANY;
+        }
+
+        String slotUpper = rawSlot.toUpperCase(java.util.Locale.ROOT);
+        // Map common intuitive aliases to official group names
+        String mappedSlot = switch (slotUpper) {
+            case "HELMET" -> "HEAD";
+            case "CHESTPLATE" -> "CHEST";
+            case "LEGGINGS" -> "LEGS";
+            case "BOOTS" -> "FEET";
+            default -> slotUpper;
+        };
+
+        try {
+            EquipmentSlotGroup group = EquipmentSlotGroup.getByName(mappedSlot);
+            return group != null ? group : EquipmentSlotGroup.ANY;
+        } catch (Exception e) {
+            return EquipmentSlotGroup.ANY;
+        }
+    }
+
+    private EquipmentSlotGroup parseSlotFromPiece(String pieceKey) {
+        String key = pieceKey.toUpperCase(java.util.Locale.ROOT);
+        return switch (key) {
+            case "HELMET" -> EquipmentSlotGroup.HEAD;
+            case "CHESTPLATE" -> EquipmentSlotGroup.CHEST;
+            case "LEGGINGS" -> EquipmentSlotGroup.LEGS;
+            case "BOOTS" -> EquipmentSlotGroup.FEET;
+            case "SWORD", "AXE", "PICKAXE", "SHOVEL", "HOE", "TOOLS" -> EquipmentSlotGroup.MAINHAND;
+            default -> EquipmentSlotGroup.ANY;
+        };
+    }
+
+    private void applyPotionEffects(ItemMeta meta, List<PotionEffectSettings> effects) {
+        if (effects == null || effects.isEmpty())
+            return;
+        if (meta instanceof PotionMeta potionMeta) {
+            int r = 0, g = 0, b = 0, count = 0;
+            for (PotionEffectSettings eff : effects) {
+                try {
+                    NamespacedKey key = NamespacedKey.minecraft(eff.type().toLowerCase(java.util.Locale.ROOT));
+                    PotionEffectType type = Registry.POTION_EFFECT_TYPE.get(key);
+                    if (type != null) {
+                        PotionEffect potionEffect = new PotionEffect(type, eff.durationTicks(), eff.amplifier());
+                        potionMeta.addCustomEffect(potionEffect, true);
+
+                        // Mix colors based on effects
+                        Color effectColor = type.getColor();
+                        r += effectColor.getRed();
+                        g += effectColor.getGreen();
+                        b += effectColor.getBlue();
+                        count++;
+                    } else {
+                        plugin.getLogger().warning("Invalid potion effect type: " + eff.type());
+                    }
+                } catch (Exception e) {
+                    plugin.getLogger().warning("Error applying potion effect: " + eff.type());
+                }
+            }
+
+            // Apply the blended color
+            if (count > 0) {
+                potionMeta.setColor(Color.fromRGB(r / count, g / count, b / count));
+            }
+        }
+    }
+
+    private Map<String, Integer> applyEnchantments(ItemMeta meta, Map<String, EnchantLevelRule> source, boolean glow,
+            int level) {
         Map<String, Integer> validEnchantments = new LinkedHashMap<>();
         for (Map.Entry<String, EnchantLevelRule> entry : source.entrySet()) {
             int enchantLevel = Math.max(1, entry.getValue().resolve(level));
@@ -130,32 +298,32 @@ public final class ItemFactory {
         return validEnchantments;
     }
 
-    private List<Component> buildLore(ItemDefinition definition, ItemBuildContext context, Map<String, String> placeholders, Map<String, Integer> enchantments) {
+    private List<Component> buildLore(ItemDefinition definition, ItemBuildContext context,
+            Map<String, String> placeholders, Map<String, Integer> enchantments) {
         if (definition.loreDefined() && definition.lore().isEmpty()) {
             return List.of();
         }
 
         List<String> template = definition.loreDefined()
-            ? definition.lore()
-            : plugin.getConfig().getStringList("display.lore-template");
+                ? definition.lore()
+                : plugin.getConfig().getStringList("display.lore-template");
         if (template.isEmpty()) {
             template = plugin.getConfig().getStringList("esthetic.lore-template");
         }
         String enchantTemplate = plugin.getConfig().getString(
-            "display.enchant-format",
-            plugin.getConfig().getString("esthetic.enchant-format", "{enchant_name} {level}")
-        );
+                "display.enchant-format",
+                plugin.getConfig().getString("esthetic.enchant-format", "{enchant_name} {level}"));
         boolean useRomanNumerals = plugin.settings().useRomanNumerals();
         boolean useRarity = plugin.getConfig().getBoolean(
-            "settings.use-rarity",
-            plugin.getConfig().getBoolean("settings.use-raritys", true)
-        );
+                "settings.use-rarity",
+                plugin.getConfig().getBoolean("settings.use-raritys", true));
         List<Component> enchantLines = new ArrayList<>();
         for (Map.Entry<String, Integer> entry : enchantments.entrySet()) {
             Map<String, String> enchantPlaceholders = new LinkedHashMap<>(placeholders);
             enchantPlaceholders.put("enchant_name", languageManager.enchantName(entry.getKey()));
             enchantPlaceholders.put("level", TextUtils.formatLevel(entry.getValue(), useRomanNumerals));
-            String resolvedEnchantLine = applyGradients(PlaceholderUtils.replace(enchantTemplate, enchantPlaceholders), context.prefixGradientColors());
+            String resolvedEnchantLine = applyGradients(PlaceholderUtils.replace(enchantTemplate, enchantPlaceholders),
+                    context.prefixGradientColors());
             enchantLines.add(TextUtils.toItemComponent(resolvedEnchantLine));
         }
 
@@ -168,13 +336,15 @@ public final class ItemFactory {
                 lore.addAll(enchantLines);
                 continue;
             }
-            String resolvedLine = applyGradients(PlaceholderUtils.replace(rawLine, placeholders), context.prefixGradientColors());
+            String resolvedLine = applyGradients(PlaceholderUtils.replace(rawLine, placeholders),
+                    context.prefixGradientColors());
             lore.add(TextUtils.toItemComponent(resolvedLine));
         }
         return lore;
     }
 
-    private Map<String, String> basePlaceholders(Material material, ItemDefinition definition, ItemBuildContext context, String pieceKey) {
+    private Map<String, String> basePlaceholders(Material material, ItemDefinition definition, ItemBuildContext context,
+            String pieceKey) {
         Map<String, String> placeholders = new LinkedHashMap<>();
         placeholders.put("kit", context.kitId());
         placeholders.put("level", TextUtils.formatLevel(context.level(), plugin.settings().useRomanNumerals()));
@@ -185,7 +355,8 @@ public final class ItemFactory {
         placeholders.put("color_principal", "<#" + context.primaryHex() + ">");
         placeholders.put("color_secundario", "<#" + context.secondaryHex() + ">");
         placeholders.put("rarity", TextUtils.toMiniMessage(context.rarityText()));
-        placeholders.put("item_id", definition.itemIdentifier() == null ? definition.id() : definition.itemIdentifier());
+        placeholders.put("item_id",
+                definition.itemIdentifier() == null ? definition.id() : definition.itemIdentifier());
         placeholders.put("item_mode", definition.mode().configKey());
         if (pieceKey != null) {
             placeholders.put("piece", pieceKey.toLowerCase());
@@ -328,8 +499,8 @@ public final class ItemFactory {
                 return Optional.empty();
             }
             return Arrays.stream(values())
-                .filter(piece -> piece.key.equalsIgnoreCase(raw) || piece.name().equalsIgnoreCase(raw))
-                .findFirst();
+                    .filter(piece -> piece.key.equalsIgnoreCase(raw) || piece.name().equalsIgnoreCase(raw))
+                    .findFirst();
         }
     }
 
@@ -355,8 +526,8 @@ public final class ItemFactory {
                 return Optional.empty();
             }
             return Arrays.stream(values())
-                .filter(piece -> piece.key.equalsIgnoreCase(raw) || piece.name().equalsIgnoreCase(raw))
-                .findFirst();
+                    .filter(piece -> piece.key.equalsIgnoreCase(raw) || piece.name().equalsIgnoreCase(raw))
+                    .findFirst();
         }
     }
 }
