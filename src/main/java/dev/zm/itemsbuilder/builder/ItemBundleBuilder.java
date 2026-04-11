@@ -31,6 +31,7 @@ public final class ItemBundleBuilder {
             kitDefinition.id(),
             rarity,
             kitDefinition.level(),
+            kitDefinition.headTextureKey(),
             prefixRaw,
             prefixMiniMessage,
             primaryHex,

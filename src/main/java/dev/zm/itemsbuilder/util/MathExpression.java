@@ -28,6 +28,21 @@ public final class MathExpression {
         }
     }
 
+    public static double evaluateDouble(String expression, int level, double fallback) {
+        if (expression == null || expression.isBlank()) {
+            return fallback;
+        }
+        try {
+            double result = new MathExpression(expression, level).parseExpression();
+            if (Double.isNaN(result) || Double.isInfinite(result)) {
+                return fallback;
+            }
+            return result;
+        } catch (RuntimeException ignored) {
+            return fallback;
+        }
+    }
+
     private double parseExpression() {
         double value = parseTerm();
         while (true) {

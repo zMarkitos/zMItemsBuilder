@@ -11,6 +11,8 @@ public record ItemDefinition(
     ItemMode mode,
     String material,
     String baseMaterial,
+    String headTextureKey,
+    String headBase64,
     String displayName,
     String displayType,
     List<String> lore,
@@ -24,7 +26,7 @@ public record ItemDefinition(
     List<String> itemFlags,
     List<String> behaviorFlags,
     List<String> pieces,
-    List<PotionEffectSettings> customEffects,
+    List<PotionEffectRule> customEffects,
     List<AttributeSettings> attributes
 ) {
 

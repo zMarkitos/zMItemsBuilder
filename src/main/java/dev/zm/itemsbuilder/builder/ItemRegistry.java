@@ -6,7 +6,8 @@ import dev.zm.itemsbuilder.builder.model.ItemDefinition;
 import dev.zm.itemsbuilder.builder.model.ItemMode;
 import dev.zm.itemsbuilder.builder.model.ItemBundleDefinition;
 import dev.zm.itemsbuilder.builder.model.AttributeSettings;
-import dev.zm.itemsbuilder.builder.model.PotionEffectSettings;
+import dev.zm.itemsbuilder.builder.model.NumberRule;
+import dev.zm.itemsbuilder.builder.model.PotionEffectRule;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -24,6 +25,9 @@ public final class ItemRegistry {
             "material",
             "base-material",
             "material-base",
+            "head",
+            "head-texture",
+            "base64",
             "display-type",
             "item-type",
             "name",
@@ -108,6 +112,7 @@ public final class ItemRegistry {
 
     private ItemBundleDefinition parseKit(String id, ConfigurationSection section) {
         String rarity = section.getString("rarity", "default");
+        String headTextureKey = section.getString("head", section.getString("head-texture"));
         ArrayList<String> itemIds = new ArrayList<>();
 
         ConfigurationSection inlineItems = section.getConfigurationSection("items");
@@ -131,7 +136,7 @@ public final class ItemRegistry {
         }
 
         int level = Math.max(1, section.getInt("level", 1));
-        return new ItemBundleDefinition(id, rarity, level, itemIds);
+        return new ItemBundleDefinition(id, rarity, level, headTextureKey, itemIds);
     }
 
     private ArrayList<String> parseLegacyItems(String kitId, ConfigurationSection section) {
@@ -163,6 +168,8 @@ public final class ItemRegistry {
                 material.toUpperCase(Locale.ROOT),
                 null,
                 null,
+                null,
+                null,
                 List.of(),
                 false,
                 parseLegacyEnchantments(section),
@@ -184,6 +191,14 @@ public final class ItemRegistry {
         ItemMode mode = ItemMode.from(section.getString("mode", section.getString("type", "single")));
         String material = section.getString("material");
         String baseMaterial = section.getString("base-material", section.getString("material-base"));
+        if ((mode == ItemMode.ARMOR_SET || mode == ItemMode.TOOL_SET)
+                && (baseMaterial == null || baseMaterial.isBlank())
+                && material != null && !material.isBlank()) {
+            // For set modes, allow `material:` to be used as the base material to reduce config confusion.
+            baseMaterial = material;
+        }
+        String headTextureKey = section.getString("head", section.getString("head-texture"));
+        String headBase64 = section.getString("base64");
         String displayName = section.getString("name");
         String displayType = section.getString("display-type", section.getString("item-type"));
         boolean loreDefined = section.contains("lore");
@@ -201,7 +216,7 @@ public final class ItemRegistry {
         List<String> itemFlags = section.getStringList("item-flags");
         List<String> behaviorFlags = section.getStringList("behavior-flags");
         List<String> pieces = section.getStringList("pieces");
-        List<PotionEffectSettings> customEffects = parsePotionEffects(
+        List<PotionEffectRule> customEffects = parsePotionEffects(
                 section.getConfigurationSection("potion-effects"));
         List<AttributeSettings> attributes = parseAttributes(section.getConfigurationSection("attributes"));
 
@@ -210,6 +225,8 @@ public final class ItemRegistry {
                 mode,
                 material == null ? null : material.toUpperCase(Locale.ROOT),
                 baseMaterial == null ? null : baseMaterial.toUpperCase(Locale.ROOT),
+                headTextureKey,
+                headBase64,
                 displayName,
                 displayType,
                 lore,
@@ -305,17 +322,21 @@ public final class ItemRegistry {
         return enchantments;
     }
 
-    private List<PotionEffectSettings> parsePotionEffects(ConfigurationSection section) {
+    private List<PotionEffectRule> parsePotionEffects(ConfigurationSection section) {
         if (section == null)
             return List.of();
-        List<PotionEffectSettings> effects = new ArrayList<>();
+        List<PotionEffectRule> effects = new ArrayList<>();
         for (String key : section.getKeys(false)) {
             ConfigurationSection eff = section.getConfigurationSection(key);
             if (eff != null) {
                 String type = eff.getString("type", key);
-                int durationSeconds = eff.getInt("duration", 10);
-                int amplifier = Math.max(1, eff.getInt("amplifier", 1)) - 1;
-                effects.add(new PotionEffectSettings(type, durationSeconds * 20, amplifier));
+                EnchantLevelRule durationRule = eff.isConfigurationSection("duration")
+                        ? EnchantLevelRule.fromSection(eff.getConfigurationSection("duration"))
+                        : EnchantLevelRule.from(eff.get("duration", 10));
+                EnchantLevelRule amplifierRule = eff.isConfigurationSection("amplifier")
+                        ? EnchantLevelRule.fromSection(eff.getConfigurationSection("amplifier"))
+                        : EnchantLevelRule.from(eff.get("amplifier", 1));
+                effects.add(new PotionEffectRule(key.toLowerCase(Locale.ROOT), type, durationRule, amplifierRule));
             }
         }
         return effects;
@@ -329,10 +350,18 @@ public final class ItemRegistry {
             ConfigurationSection attr = section.getConfigurationSection(key);
             if (attr != null) {
                 String attribute = attr.getString("attribute", key);
-                double amount = attr.getDouble("amount", 0.0);
+                Object amountRaw;
+                if (attr.isConfigurationSection("amount")) {
+                    amountRaw = attr.getConfigurationSection("amount");
+                } else {
+                    amountRaw = attr.get("amount", 0.0D);
+                }
+                NumberRule amount = amountRaw instanceof ConfigurationSection amountSection
+                        ? NumberRule.fromSection(amountSection, 0.0D)
+                        : NumberRule.from(amountRaw, 0.0D);
                 String operation = attr.getString("operation", "ADD_NUMBER");
                 String slot = attr.getString("slot", "ALL");
-                attributes.add(new AttributeSettings(attribute, amount, operation, slot));
+                attributes.add(new AttributeSettings(key.toLowerCase(Locale.ROOT), attribute, amount, operation, slot));
             }
         }
         return attributes;

@@ -8,6 +8,7 @@ public record ItemBundleDefinition(
     String id,
     String rarity,
     int level,
+    String headTextureKey,
     List<String> itemIds
 ) {
 

@@ -8,6 +8,7 @@ public record ItemBuildContext(
     String kitId,
     String rarityText,
     int level,
+    String headTextureKey,
     String prefixRaw,
     String prefixMiniMessage,
     String primaryHex,

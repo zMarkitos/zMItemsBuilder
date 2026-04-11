@@ -9,8 +9,9 @@ import dev.zm.itemsbuilder.builder.model.ItemMode;
 import dev.zm.itemsbuilder.util.ItemResolver;
 import dev.zm.itemsbuilder.util.ItemFlagStore;
 import dev.zm.itemsbuilder.util.ItemIdentityStore;
-import dev.zm.itemsbuilder.util.MathExpression;
 import dev.zm.itemsbuilder.util.PlaceholderUtils;
+import dev.zm.itemsbuilder.util.HeadTextureUtils;
+import dev.zm.itemsbuilder.util.ItemEffectsStore;
 import dev.zm.itemsbuilder.util.TextUtils;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,6 +27,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.Color;
@@ -35,6 +37,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import dev.zm.itemsbuilder.builder.model.AttributeSettings;
+import dev.zm.itemsbuilder.builder.model.PotionEffectRule;
 import dev.zm.itemsbuilder.builder.model.PotionEffectSettings;
 import java.util.UUID;
 
@@ -53,7 +56,7 @@ public final class ItemFactory {
         ItemMode mode = definition.mode();
         if (mode == ItemMode.ARMOR_SET) {
             if (definition.baseMaterial() == null || definition.baseMaterial().isBlank()) {
-                plugin.getLogger().warning("Missing base-material for armor set item: " + definition.id());
+                plugin.getLogger().warning("Missing base material (material/base-material) for armor set item: " + definition.id());
                 return items;
             }
             for (ArmorPiece piece : selectedArmorPieces(definition)) {
@@ -66,7 +69,7 @@ public final class ItemFactory {
         }
         if (mode == ItemMode.TOOL_SET) {
             if (definition.baseMaterial() == null || definition.baseMaterial().isBlank()) {
-                plugin.getLogger().warning("Missing base-material for tool set item: " + definition.id());
+                plugin.getLogger().warning("Missing base material (material/base-material) for tool set item: " + definition.id());
                 return items;
             }
             for (ToolPiece piece : selectedToolPieces(definition)) {
@@ -97,12 +100,17 @@ public final class ItemFactory {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
 
+        applyHeadTexture(meta, material, definition, context);
         Map<String, Integer> validEnchantments = applyEnchantments(meta, definition.enchantments(), definition.glow(),
                 context.level());
         applyBehaviorFlags(meta, definition.behaviorFlags());
-        applyAttributes(meta, definition.attributes(), pieceKey, material);
-        applyPotionEffects(meta, definition.customEffects());
+        Map<String, Double> resolvedAttributes = applyAttributes(meta, definition.attributes(), pieceKey, material,
+                context.level());
+        Map<String, PotionEffectSettings> resolvedEffects = applyPotionEffects(meta, definition.customEffects(),
+                context.level());
         Map<String, String> placeholders = basePlaceholders(material, definition, context, pieceKey);
+        addAttributePlaceholders(placeholders, resolvedAttributes);
+        addEffectPlaceholders(placeholders, resolvedEffects, plugin.settings().useRomanNumerals());
         String displayNameTemplate = definition.displayName();
         if (displayNameTemplate == null || displayNameTemplate.isBlank()) {
             displayNameTemplate = plugin.getConfig().getString(
@@ -130,10 +138,11 @@ public final class ItemFactory {
         return item;
     }
 
-    private void applyAttributes(ItemMeta meta, List<AttributeSettings> attributes, String pieceKey,
-            Material material) {
-        if (attributes == null || attributes.isEmpty())
-            return;
+    private Map<String, Double> applyAttributes(ItemMeta meta, List<AttributeSettings> attributes, String pieceKey,
+            Material material, int level) {
+        if (attributes == null || attributes.isEmpty()) {
+            return java.util.Collections.emptyMap();
+        }
 
         // First restore all default attributes of the material
         for (org.bukkit.inventory.EquipmentSlot defaultSlot : org.bukkit.inventory.EquipmentSlot.values()) {
@@ -143,7 +152,12 @@ public final class ItemFactory {
                 meta.addAttributeModifier(entry.getKey(), entry.getValue());
             }
         }
+
+        Map<String, Double> resolved = new LinkedHashMap<>();
         for (AttributeSettings attrConfig : attributes) {
+            if (attrConfig == null) {
+                continue;
+            }
             String attrName = attrConfig.attribute().toUpperCase(java.util.Locale.ROOT);
             Attribute attribute = null;
             try {
@@ -198,14 +212,20 @@ public final class ItemFactory {
                     }
                 }
 
+                double amount = attrConfig.amount() == null ? 0.0D : attrConfig.amount().resolve(level, 0.0D);
                 NamespacedKey key = new NamespacedKey(plugin,
                         "custom_attr_" + UUID.randomUUID().toString().substring(0, 8));
-                AttributeModifier modifier = new AttributeModifier(key, attrConfig.amount(), operation, slotGroup);
+                AttributeModifier modifier = new AttributeModifier(key, amount, operation, slotGroup);
                 meta.addAttributeModifier(attribute, modifier);
+                if (attrConfig.id() != null && !attrConfig.id().isBlank()) {
+                    resolved.put(attrConfig.id(), amount);
+                }
             } catch (IllegalArgumentException e) {
                 plugin.getLogger().warning(e.getMessage());
             }
         }
+
+        return resolved.isEmpty() ? java.util.Collections.emptyMap() : java.util.Collections.unmodifiableMap(resolved);
     }
 
     private EquipmentSlotGroup parseSlotGroup(String rawSlot, String pieceKey) {
@@ -247,12 +267,29 @@ public final class ItemFactory {
         };
     }
 
-    private void applyPotionEffects(ItemMeta meta, List<PotionEffectSettings> effects) {
-        if (effects == null || effects.isEmpty())
-            return;
+    private Map<String, PotionEffectSettings> applyPotionEffects(ItemMeta meta, List<PotionEffectRule> effects,
+            int level) {
+        if (effects == null || effects.isEmpty()) {
+            ItemEffectsStore.write(plugin, meta, List.of());
+            return java.util.Collections.emptyMap();
+        }
+
+        Map<String, PotionEffectSettings> resolved = new LinkedHashMap<>();
+        List<PotionEffectSettings> resolvedList = new ArrayList<>();
+        for (PotionEffectRule rule : effects) {
+            if (rule == null) {
+                continue;
+            }
+            PotionEffectSettings settings = rule.resolve(level);
+            resolved.put(rule.id(), settings);
+            resolvedList.add(settings);
+        }
+
+        ItemEffectsStore.write(plugin, meta, resolvedList);
+
         if (meta instanceof PotionMeta potionMeta) {
             int r = 0, g = 0, b = 0, count = 0;
-            for (PotionEffectSettings eff : effects) {
+            for (PotionEffectSettings eff : resolvedList) {
                 try {
                     NamespacedKey key = NamespacedKey.minecraft(eff.type().toLowerCase(java.util.Locale.ROOT));
                     PotionEffectType type = Registry.POTION_EFFECT_TYPE.get(key);
@@ -279,6 +316,171 @@ public final class ItemFactory {
                 potionMeta.setColor(Color.fromRGB(r / count, g / count, b / count));
             }
         }
+
+        return resolved.isEmpty() ? java.util.Collections.emptyMap() : java.util.Collections.unmodifiableMap(resolved);
+    }
+
+    private void applyHeadTexture(ItemMeta meta, Material material, ItemDefinition definition, ItemBuildContext context) {
+        if (material != Material.PLAYER_HEAD) {
+            return;
+        }
+        if (!(meta instanceof SkullMeta skullMeta)) {
+            return;
+        }
+
+        String base64 = resolveHeadBase64(definition, context);
+        if (base64 == null || base64.isBlank()) {
+            return;
+        }
+        if (!HeadTextureUtils.applyBase64Texture(skullMeta, base64)) {
+            plugin.getLogger().warning("Invalid head texture for item: " + definition.id());
+        }
+    }
+
+    private String resolveHeadBase64(ItemDefinition definition, ItemBuildContext context) {
+        if (definition.headBase64() != null && !definition.headBase64().isBlank()) {
+            return definition.headBase64();
+        }
+        if (definition.headTextureKey() != null && !definition.headTextureKey().isBlank()) {
+            String configured = plugin.getConfig().getString("heads-texture." + definition.headTextureKey());
+            if (configured != null && !configured.isBlank()) {
+                return configured;
+            }
+            // Allow using a direct base64 value via `head:` as a shortcut.
+            String raw = definition.headTextureKey().trim();
+            if (raw.regionMatches(true, 0, "http", 0, 4)) {
+                return raw;
+            }
+            return looksLikeBase64(raw) ? raw : null;
+        }
+        if (context.headTextureKey() != null && !context.headTextureKey().isBlank()) {
+            String configured = plugin.getConfig().getString("heads-texture." + context.headTextureKey());
+            if (configured != null && !configured.isBlank()) {
+                return configured;
+            }
+            String raw = context.headTextureKey().trim();
+            if (raw.regionMatches(true, 0, "http", 0, 4)) {
+                return raw;
+            }
+            return looksLikeBase64(raw) ? raw : null;
+        }
+
+        // Intuitive fallback: if `heads-texture.<kitId>` exists, use it without forcing `kits.<kit>.head`.
+        String byKitId = plugin.getConfig().getString("heads-texture." + context.kitId());
+        if (byKitId != null && !byKitId.isBlank()) {
+            return byKitId;
+        }
+        return null;
+    }
+
+    private boolean looksLikeBase64(String value) {
+        if (value == null) {
+            return false;
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() < 32) {
+            return false;
+        }
+        // Very light heuristic: avoid treating keys like "level_1" as base64.
+        for (int i = 0; i < trimmed.length(); i++) {
+            char c = trimmed.charAt(i);
+            boolean ok = (c >= 'a' && c <= 'z')
+                    || (c >= 'A' && c <= 'Z')
+                    || (c >= '0' && c <= '9')
+                    || c == '+' || c == '/' || c == '=';
+            if (!ok) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void addAttributePlaceholders(Map<String, String> placeholders, Map<String, Double> attributes) {
+        if (placeholders == null || attributes == null || attributes.isEmpty()) {
+            return;
+        }
+        String first = null;
+        for (Map.Entry<String, Double> entry : attributes.entrySet()) {
+            String id = entry.getKey();
+            double amount = entry.getValue() == null ? 0.0D : entry.getValue();
+            String value = formatAttributeLevel(amount);
+            placeholders.put("attribute_level:" + id, value);
+            placeholders.put("attribute_amount:" + id, stripTrailingZeros(amount));
+            placeholders.put("attribute_percent:" + id, formatPercent(amount));
+            if (first == null) {
+                first = value;
+            }
+        }
+        if (first != null) {
+            placeholders.put("attribute_level", first);
+        }
+    }
+
+    private void addEffectPlaceholders(Map<String, String> placeholders, Map<String, PotionEffectSettings> effects,
+            boolean useRomanNumerals) {
+        if (placeholders == null || effects == null || effects.isEmpty()) {
+            return;
+        }
+        String firstLevel = null;
+        for (Map.Entry<String, PotionEffectSettings> entry : effects.entrySet()) {
+            String id = entry.getKey();
+            PotionEffectSettings eff = entry.getValue();
+            if (eff == null) {
+                continue;
+            }
+            int level = Math.max(1, eff.amplifier() + 1);
+            String levelText = TextUtils.formatLevel(level, useRomanNumerals);
+            placeholders.put("effect_level:" + id, levelText);
+            placeholders.put("effect_duration:" + id, formatDuration(Math.max(0, eff.durationTicks() / 20)));
+            if (firstLevel == null) {
+                firstLevel = levelText;
+            }
+        }
+        if (firstLevel != null) {
+            placeholders.put("effect_level", firstLevel);
+            // Common typo support: {effect_leve}
+            placeholders.put("effect_leve", firstLevel);
+        }
+    }
+
+    private String stripTrailingZeros(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            return "0";
+        }
+        String text = String.valueOf(value);
+        if (text.endsWith(".0")) {
+            return text.substring(0, text.length() - 2);
+        }
+        return text;
+    }
+
+    private double roundTo(double value, int decimals) {
+        if (decimals <= 0) {
+            return Math.round(value);
+        }
+        double scale = Math.pow(10, decimals);
+        return Math.round(value * scale) / scale;
+    }
+
+    private String formatPercent(double amount) {
+        double percent = amount * 100.0D;
+        String text = stripTrailingZeros(roundTo(percent, 2));
+        return text + "%";
+    }
+
+    private String formatAttributeLevel(double amount) {
+        double abs = Math.abs(amount);
+        if (abs > 0.0D && abs < 1.0D) {
+            return formatPercent(amount);
+        }
+        return stripTrailingZeros(roundTo(amount, 4));
+    }
+
+    private String formatDuration(int seconds) {
+        int s = Math.max(0, seconds);
+        int m = s / 60;
+        int r = s % 60;
+        return m + ":" + (r < 10 ? "0" + r : String.valueOf(r));
     }
 
     private Map<String, Integer> applyEnchantments(ItemMeta meta, Map<String, EnchantLevelRule> source, boolean glow,
@@ -422,9 +624,14 @@ public final class ItemFactory {
         if (flags == null || flags.isEmpty()) {
             return;
         }
-        List<ItemFlag> parsedFlags = new ArrayList<>();
+        EnumSet<ItemFlag> parsedFlags = EnumSet.noneOf(ItemFlag.class);
+        boolean hideAll = false;
         for (String flag : flags) {
             if (flag == null || flag.isBlank()) {
+                continue;
+            }
+            if ("HIDE_ALL".equalsIgnoreCase(flag.trim())) {
+                hideAll = true;
                 continue;
             }
             try {
@@ -432,6 +639,9 @@ public final class ItemFactory {
             } catch (IllegalArgumentException ignored) {
                 // Ignore unknown flags.
             }
+        }
+        if (hideAll) {
+            parsedFlags.addAll(EnumSet.allOf(ItemFlag.class));
         }
         if (!parsedFlags.isEmpty()) {
             meta.addItemFlags(parsedFlags.toArray(new ItemFlag[0]));
