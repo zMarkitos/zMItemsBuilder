@@ -50,6 +50,7 @@
 # - {effect_duration:<id>}       → effect duration by config key (mm:ss)
 #
 # Notes:
+# - {attribute_level:max_health} and {attribute_level:attack_damage} are shown in hearts (amount / 2)
 # - {level} can be displayed as normal numbers or Roman numerals
 # ======================================================================
 
@@ -178,7 +179,7 @@ display:
 # -----------------------------------------------------
 heads-texture:
   # Example keys (leave empty if you don't use textured heads)
-  special: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMzRjOTA1MmFjNDJmZmRiYTM0ODgwMmJmNjBmZTgwOWQ5OTdjZjUxYmMwNDZmNjFkMTAyZDZkZjNmMzVkN2NkOSJ9fX0="
+  special: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZWFlZDUyYTA0ZWRmYzQyOTU5MGMyMWQ1OWQ1MDA1ZTNiYTYyODY2YzUyYWVkODk1ZjFiZTk0ZDdmNjQyYTAxMyJ9fX0="
   level_1: ""
 
 # -----------------------------------------------------
@@ -203,8 +204,8 @@ items:
       - "{enchants}"
       - ""
       - " {gradient:⚡ Abilities:}"
-      - "   {primary_color}&l•&r &fExtra hearts {secondary_color}+5"
-      - "   {primary_color}&l•&r &fSpeed level {secondary_color}+2%"
+      - "   {primary_color}&l•&r &fExtra hearts {secondary_color}+{attribute_level:max_health}"
+      - "   {primary_color}&l•&r &fSpeed level {secondary_color}+{attribute_level:speed}"
       - ""
       - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
       - ""
@@ -216,7 +217,9 @@ items:
       mending: 5
     item-flags:
       - HIDE_ENCHANTS
-    behavior-flags: []
+      - HIDE_ALL
+    behavior-flags:
+      - NO_PLACE
     # -----------------------------------------------------
     # ATTRIBUTES (Passive bonuses)
     # -----------------------------------------------------
@@ -232,6 +235,11 @@ items:
     # - operation: Usually ADD_NUMBER
     # - slot: Where it applies (e.g. HELMET, CHESTPLATE, LEGGINGS, BOOTS, MAINHAND, OFFHAND, ALL, ANY)
     attributes:
+      armor:
+        attribute: ARMOR
+        amount: 3
+        operation: ADD_NUMBER
+        slot: HELMET
       max_health:
         attribute: MAX_HEALTH
         amount:
@@ -260,10 +268,10 @@ items:
       - "{enchants}"
       - ""
       - " {gradient:⚡ Abilities:}"
-      - "   {primary_color}&l•&r &fExtra hearts {secondary_color}+5"
-      - "   {primary_color}&l•&r &fStrength level {secondary_color}+2%"
-      - "   {primary_color}&l•&r &fSpeed level {secondary_color}+2%"
-      - "   {primary_color}&l•&r &fResistance level {secondary_color}+2%"
+      - "   {primary_color}&l•&r &fExtra hearts {secondary_color}+{attribute_level:max_health}"
+      - "   {primary_color}&l•&r &fStrength level {secondary_color}+{attribute_level:strength}"
+      - "   {primary_color}&l•&r &fSpeed level {secondary_color}+{attribute_level:speed}"
+      - "   {primary_color}&l•&r &fResistance level {secondary_color}+{attribute_level:resistance}"
       - ""
       - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
       - ""
@@ -392,9 +400,9 @@ items:
     lore:
       - ""
       - " {gradient:⚡ Effects on consumption:}"
-      - "   {primary_color}&l•&r &fRegeneration II {secondary_color}(0:10)"
-      - "   {primary_color}&l•&r &fStrength II {secondary_color}(0:10)"
-      - "   {primary_color}&l•&r &fAbsorption {secondary_color}(2:00)"
+      - "   {primary_color}&l•&r &fRegeneration {effect_level:regen} {secondary_color}({effect_duration:regen})"
+      - "   {primary_color}&l•&r &fStrength {effect_level:strength} {secondary_color}({effect_duration:strength})"
+      - "   {primary_color}&l•&r &fAbsorption {effect_level:absorp} {secondary_color}({effect_duration:absorp})"
       - ""
       - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
       - ""
@@ -407,7 +415,8 @@ items:
     # POTION EFFECTS (Consumables)
     # -----------------------------------------------------
     # Effects automatically applied to the player when eating or drinking the item.
-    # - type: PotionEffectType (e.g. REGENERATION, ABSORPTION, SPEED)
+    # - type: PotionEffectType (e.g. REGENERATION, ABSORPTION, SPEED) 
+    # List effects: https://hub.spigotmc.org/javadocs/spigot/org/bukkit/potion/PotionEffectType.html
     # - duration: Duration of the effect in SECONDS
     # - amplifier: The level of the effect (1 = Level I, 2 = Level II, etc.)
     potion-effects:

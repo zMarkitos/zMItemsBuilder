@@ -3,24 +3,37 @@ package dev.zm.itemsbuilder.command;
 import dev.zm.itemsbuilder.zMItemsBuilder;
 import dev.zm.itemsbuilder.config.PluginSettings;
 import dev.zm.itemsbuilder.builder.model.ItemBundleDefinition;
+import dev.zm.itemsbuilder.builder.model.ItemBehaviorFlag;
+import dev.zm.itemsbuilder.builder.model.PotionEffectSettings;
 import dev.zm.itemsbuilder.util.ColorUtils;
+import dev.zm.itemsbuilder.util.ItemEffectsStore;
+import dev.zm.itemsbuilder.util.ItemFlagStore;
+import dev.zm.itemsbuilder.util.ItemIdentityStore;
+import dev.zm.itemsbuilder.util.ItemResolver;
 import dev.zm.itemsbuilder.util.TextUtils;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 public final class zMItemsCommand implements CommandExecutor, TabCompleter {
 
     private final zMItemsBuilder plugin;
+    private static final List<String> MATERIAL_SUGGESTIONS = buildMaterialSuggestions();
 
     public zMItemsCommand(zMItemsBuilder plugin) {
         this.plugin = plugin;
@@ -37,6 +50,8 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter {
         return switch (subcommand) {
             case "create" -> handleCreate(sender, args);
             case "reload" -> handleReload(sender);
+            case "material" -> handleMaterial(sender, args);
+            case "info" -> handleInfo(sender);
             default -> {
                 sender.sendMessage(plugin.language().message("usage"));
                 yield true;
@@ -119,13 +134,113 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean handleMaterial(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("zmitemsbuilder.material")) {
+            sender.sendMessage(plugin.language().message("no-permission"));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.language().message("player-only"));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(plugin.language().message("usage-material"));
+            return true;
+        }
+
+        Optional<Material> targetMaterial = ItemResolver.material(args[1]);
+        if (targetMaterial.isEmpty() || targetMaterial.get().isAir()) {
+            sender.sendMessage(plugin.language().message("invalid-material", Map.of("material", args[1])));
+            return true;
+        }
+
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        if (inHand == null || inHand.getType().isAir()) {
+            sender.sendMessage(plugin.language().message("no-item-in-hand"));
+            return true;
+        }
+
+        Material material = targetMaterial.get();
+        ItemStack updated = changeMaterialPreservingData(inHand, material);
+        player.getInventory().setItemInMainHand(updated);
+        sender.sendMessage(plugin.language().message("material-updated", Map.of("material", material.name())));
+        return true;
+    }
+
+    private ItemStack changeMaterialPreservingData(ItemStack original, Material newMaterial) {
+        String itemId = ItemIdentityStore.read(plugin, original);
+        Set<ItemBehaviorFlag> flags = ItemFlagStore.read(plugin, original);
+        List<PotionEffectSettings> effects = ItemEffectsStore.read(plugin, original);
+
+        ItemStack updated = original.clone();
+        updated.setType(newMaterial);
+
+        ItemMeta originalMeta = original.getItemMeta();
+        if (originalMeta != null) {
+            ItemMeta converted = Bukkit.getItemFactory().asMetaFor(originalMeta, newMaterial);
+            if (converted != null) {
+                updated.setItemMeta(converted);
+            }
+        }
+
+        ItemMeta meta = updated.getItemMeta();
+        if (meta == null) {
+            return updated;
+        }
+        ItemIdentityStore.write(plugin, meta, itemId);
+        ItemFlagStore.write(plugin, meta, flags);
+        ItemEffectsStore.write(plugin, meta, effects);
+        updated.setItemMeta(meta);
+        return updated;
+    }
+
+    private boolean handleInfo(CommandSender sender) {
+        if (!sender.hasPermission("zmitemsbuilder.info")) {
+            sender.sendMessage(plugin.language().message("no-permission"));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.language().message("player-only"));
+            return true;
+        }
+
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        if (inHand == null || inHand.getType().isAir()) {
+            sender.sendMessage(plugin.language().message("no-item-in-hand"));
+            return true;
+        }
+
+        String itemId = ItemIdentityStore.read(plugin, inHand);
+        ItemMeta meta = inHand.getItemMeta();
+        boolean hasCustomModelData = meta != null && meta.hasCustomModelData();
+        String material = inHand.getType().name();
+
+        if (itemId == null && !hasCustomModelData) {
+            sender.sendMessage(plugin.language().message("info-none", Map.of("material", material)));
+            return true;
+        }
+
+        sender.sendMessage(plugin.language().message("info-header"));
+        sender.sendMessage(plugin.language().message("info-material", Map.of("material", material)));
+        if (itemId != null) {
+            sender.sendMessage(plugin.language().message("info-id", Map.of("id", itemId)));
+        }
+        if (hasCustomModelData) {
+            sender.sendMessage(plugin.language().message("info-cmd", Map.of("cmd", String.valueOf(meta.getCustomModelData()))));
+        }
+        return true;
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return filter(List.of("create", "reload"), args[0]);
+            return filter(List.of("create", "reload", "material", "info"), args[0]);
         }
         if (args.length == 2 && "create".equalsIgnoreCase(args[0])) {
             return filter(plugin.itemRegistry().getBundleIds(), args[1]);
+        }
+        if (args.length == 2 && "material".equalsIgnoreCase(args[0])) {
+            return filter(MATERIAL_SUGGESTIONS, args[1]);
         }
         return Collections.emptyList();
     }
@@ -140,5 +255,16 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter {
 
     private boolean hasAnyPermission(CommandSender sender, String primary, String legacy) {
         return sender.hasPermission(primary) || sender.hasPermission(legacy);
+    }
+
+    private static List<String> buildMaterialSuggestions() {
+        List<String> materials = new ArrayList<>(Material.values().length);
+        Arrays.stream(Material.values())
+            .filter(mat -> mat != null && !mat.isAir())
+            .map(mat -> mat.name().toLowerCase(Locale.ROOT))
+            .distinct()
+            .sorted()
+            .forEach(materials::add);
+        return List.copyOf(materials);
     }
 }

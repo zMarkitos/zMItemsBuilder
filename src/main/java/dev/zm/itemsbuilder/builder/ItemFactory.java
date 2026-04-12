@@ -395,25 +395,40 @@ public final class ItemFactory {
         return true;
     }
 
-    private void addAttributePlaceholders(Map<String, String> placeholders, Map<String, Double> attributes) {
-        if (placeholders == null || attributes == null || attributes.isEmpty()) {
+    private void addAttributePlaceholders(Map<String, String> placeholders, Map<String, Double> resolvedAttributes) {
+        if (placeholders == null) {
             return;
         }
+
+        // Fill placeholders from actually-applied attributes first.
+        if (resolvedAttributes != null && !resolvedAttributes.isEmpty()) {
+            for (Map.Entry<String, Double> entry : resolvedAttributes.entrySet()) {
+                String id = entry.getKey();
+                if (id == null || id.isBlank()) {
+                    continue;
+                }
+                double amount = entry.getValue() == null ? 0.0D : entry.getValue();
+                putAttributePlaceholder(placeholders, id, amount);
+            }
+        }
+
         String first = null;
-        for (Map.Entry<String, Double> entry : attributes.entrySet()) {
-            String id = entry.getKey();
-            double amount = entry.getValue() == null ? 0.0D : entry.getValue();
-            String value = formatAttributeLevel(amount);
-            placeholders.put("attribute_level:" + id, value);
-            placeholders.put("attribute_amount:" + id, stripTrailingZeros(amount));
-            placeholders.put("attribute_percent:" + id, formatPercent(amount));
-            if (first == null) {
-                first = value;
+        if (resolvedAttributes != null && !resolvedAttributes.isEmpty()) {
+            Map.Entry<String, Double> entry = resolvedAttributes.entrySet().iterator().next();
+            if (entry.getKey() != null && !entry.getKey().isBlank()) {
+                first = formatAttributeLevel(entry.getKey(), entry.getValue() == null ? 0.0D : entry.getValue());
             }
         }
         if (first != null) {
             placeholders.put("attribute_level", first);
         }
+    }
+
+    private void putAttributePlaceholder(Map<String, String> placeholders, String id, double amount) {
+        String value = formatAttributeLevel(id, amount);
+        placeholders.put("attribute_level:" + id, value);
+        placeholders.put("attribute_amount:" + id, stripTrailingZeros(amount));
+        placeholders.put("attribute_percent:" + id, formatPercent(amount));
     }
 
     private void addEffectPlaceholders(Map<String, String> placeholders, Map<String, PotionEffectSettings> effects,
@@ -468,12 +483,24 @@ public final class ItemFactory {
         return text + "%";
     }
 
-    private String formatAttributeLevel(double amount) {
+    private String formatAttributeLevel(String id, double amount) {
+        if (id != null && isHeartsAttributeId(id)) {
+            double hearts = amount / 2.0D;
+            return stripTrailingZeros(roundTo(hearts, 4));
+        }
         double abs = Math.abs(amount);
         if (abs > 0.0D && abs < 1.0D) {
             return formatPercent(amount);
         }
         return stripTrailingZeros(roundTo(amount, 4));
+    }
+
+    private boolean isHeartsAttributeId(String id) {
+        String key = id.trim().toLowerCase(java.util.Locale.ROOT);
+        return key.equals("max_health")
+                || key.equals("attack_damage")
+                || key.endsWith(":max_health")
+                || key.endsWith(":attack_damage");
     }
 
     private String formatDuration(int seconds) {
@@ -538,11 +565,28 @@ public final class ItemFactory {
                 lore.addAll(enchantLines);
                 continue;
             }
-            String resolvedLine = applyGradients(PlaceholderUtils.replace(rawLine, placeholders),
-                    context.prefixGradientColors());
+            String replaced = PlaceholderUtils.replace(rawLine, placeholders);
+            if (containsUnresolvedAttributeOrEffectPlaceholders(replaced)) {
+                continue;
+            }
+            String resolvedLine = applyGradients(replaced, context.prefixGradientColors());
             lore.add(TextUtils.toItemComponent(resolvedLine));
         }
         return lore;
+    }
+
+    private boolean containsUnresolvedAttributeOrEffectPlaceholders(String text) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        return text.contains("{attribute_level}")
+                || text.contains("{attribute_level:")
+                || text.contains("{attribute_amount:")
+                || text.contains("{attribute_percent:")
+                || text.contains("{effect_level}")
+                || text.contains("{effect_level:")
+                || text.contains("{effect_duration:")
+                || text.contains("{effect_leve}");
     }
 
     private Map<String, String> basePlaceholders(Material material, ItemDefinition definition, ItemBuildContext context,
