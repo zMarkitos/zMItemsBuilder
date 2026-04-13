@@ -110,7 +110,16 @@ public final class ItemBehaviorListener implements Listener {
         for (PotionEffectSettings eff : effects) {
             try {
                 NamespacedKey key = NamespacedKey.minecraft(eff.type().toLowerCase(java.util.Locale.ROOT));
-                PotionEffectType type = Registry.POTION_EFFECT_TYPE.get(key);
+                PotionEffectType type = null;
+                try {
+                    type = Registry.POTION_EFFECT_TYPE.get(key);
+                } catch (Exception | NoSuchFieldError e) {}
+                if (type == null) {
+                    type = PotionEffectType.getByKey(key);
+                }
+                if (type == null) {
+                    type = PotionEffectType.getByName(eff.type().toUpperCase(java.util.Locale.ROOT));
+                }
                 if (type != null) {
                     event.getPlayer().addPotionEffect(new PotionEffect(type, eff.durationTicks(), eff.amplifier()));
                 }

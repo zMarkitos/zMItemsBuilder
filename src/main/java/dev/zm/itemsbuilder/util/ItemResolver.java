@@ -24,6 +24,14 @@ public final class ItemResolver {
             return Optional.empty();
         }
         NamespacedKey namespacedKey = NamespacedKey.minecraft(key.toLowerCase(Locale.ROOT));
-        return Optional.ofNullable(Registry.ENCHANTMENT.get(namespacedKey));
+        try {
+            Enchantment ench = Registry.ENCHANTMENT.get(namespacedKey);
+            if (ench != null) {
+                return Optional.of(ench);
+            }
+        } catch (Exception | NoSuchFieldError e) {
+            // Ignored, dropping down to fallback
+        }
+        return Optional.ofNullable(Enchantment.getByKey(namespacedKey));
     }
 }

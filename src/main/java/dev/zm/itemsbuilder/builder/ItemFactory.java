@@ -31,7 +31,6 @@ import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.Color;
-import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.NamespacedKey;
@@ -40,6 +39,7 @@ import dev.zm.itemsbuilder.builder.model.AttributeSettings;
 import dev.zm.itemsbuilder.builder.model.PotionEffectRule;
 import dev.zm.itemsbuilder.builder.model.PotionEffectSettings;
 import java.util.UUID;
+import org.bukkit.inventory.EquipmentSlot;
 
 public final class ItemFactory {
 
@@ -56,7 +56,8 @@ public final class ItemFactory {
         ItemMode mode = definition.mode();
         if (mode == ItemMode.ARMOR_SET) {
             if (definition.baseMaterial() == null || definition.baseMaterial().isBlank()) {
-                plugin.getLogger().warning("Missing base material (material/base-material) for armor set item: " + definition.id());
+                plugin.getLogger().warning(
+                        "Missing base material (material/base-material) for armor set item: " + definition.id());
                 return items;
             }
             for (ArmorPiece piece : selectedArmorPieces(definition)) {
@@ -69,7 +70,8 @@ public final class ItemFactory {
         }
         if (mode == ItemMode.TOOL_SET) {
             if (definition.baseMaterial() == null || definition.baseMaterial().isBlank()) {
-                plugin.getLogger().warning("Missing base material (material/base-material) for tool set item: " + definition.id());
+                plugin.getLogger().warning(
+                        "Missing base material (material/base-material) for tool set item: " + definition.id());
                 return items;
             }
             for (ToolPiece piece : selectedToolPieces(definition)) {
@@ -144,13 +146,23 @@ public final class ItemFactory {
             return java.util.Collections.emptyMap();
         }
 
-        // First restore all default attributes of the material
-        for (org.bukkit.inventory.EquipmentSlot defaultSlot : org.bukkit.inventory.EquipmentSlot.values()) {
-            com.google.common.collect.Multimap<Attribute, AttributeModifier> defaultModifiers = material
-                    .getDefaultAttributeModifiers(defaultSlot);
-            for (java.util.Map.Entry<Attribute, AttributeModifier> entry : defaultModifiers.entries()) {
-                meta.addAttributeModifier(entry.getKey(), entry.getValue());
+        // Restore default modifiers of the material.
+        // Minecraft clears all vanilla attributes across the item as soon as a custom
+        // modifier is injected.
+        try {
+            com.google.common.collect.Multimap<Attribute, AttributeModifier> existing = meta.getAttributeModifiers();
+            if (existing == null || existing.isEmpty()) {
+                for (org.bukkit.inventory.EquipmentSlot defaultSlot : org.bukkit.inventory.EquipmentSlot.values()) {
+                    com.google.common.collect.Multimap<Attribute, AttributeModifier> defaultModifiers = material
+                            .getDefaultAttributeModifiers(defaultSlot);
+                    if (defaultModifiers != null) {
+                        for (java.util.Map.Entry<Attribute, AttributeModifier> entry : defaultModifiers.entries()) {
+                            meta.addAttributeModifier(entry.getKey(), entry.getValue());
+                        }
+                    }
+                }
             }
+        } catch (Exception ignored) {
         }
 
         Map<String, Double> resolved = new LinkedHashMap<>();
@@ -173,52 +185,25 @@ public final class ItemFactory {
 
             try {
                 String opName = attrConfig.operation().toUpperCase(java.util.Locale.ROOT);
-                AttributeModifier.Operation operation = null;
-                try {
-                    operation = AttributeModifier.Operation.valueOf(opName);
-                } catch (IllegalArgumentException e) {
-                    // Try mapping common legacy/new names
-                    String mappedOp = switch (opName) {
-                        case "ADD_NUMBER", "ADDITION" -> "ADD_VALUE";
-                        case "ADD_SCALAR", "MULTIPLY_BASE" -> "ADD_MULTIPLIED_BASE";
-                        case "MULTIPLY_SCALAR_1", "MULTIPLY_TOTAL" -> "ADD_MULTIPLIED_TOTAL";
-                        default -> null;
-                    };
-                    if (mappedOp != null) {
-                        try {
-                            operation = AttributeModifier.Operation.valueOf(mappedOp);
-                        } catch (IllegalArgumentException ignored) {
-                        }
-                    }
-                }
-
-                if (operation == null) {
-                    java.util.StringJoiner joiner = new java.util.StringJoiner(", ");
-                    for (AttributeModifier.Operation op : AttributeModifier.Operation.values()) {
-                        joiner.add(op.name());
-                    }
-                    throw new IllegalArgumentException(
-                            "Unknown operation: " + opName + ". Valid names: " + joiner.toString());
-                }
-
-                EquipmentSlotGroup slotGroup = parseSlotGroup(attrConfig.slot(), pieceKey);
+                Object slotGroup = parseSlotGroup(attrConfig.slot(), pieceKey);
 
                 // Filter attributes to only apply to the relevant piece
                 if (pieceKey != null && attrConfig.slot() != null
                         && !attrConfig.slot().equalsIgnoreCase("ALL")
                         && !attrConfig.slot().equalsIgnoreCase("ANY")) {
-                    if (!slotGroup.equals(parseSlotFromPiece(pieceKey))) {
+                    Object pieceSlot = parseSlotFromPiece(pieceKey);
+                    if (slotGroup != null && !slotGroup.equals(pieceSlot)) {
                         continue;
                     }
                 }
 
                 double amount = attrConfig.amount() == null ? 0.0D : attrConfig.amount().resolve(level, 0.0D);
-                NamespacedKey key = new NamespacedKey(plugin,
-                        "custom_attr_" + UUID.randomUUID().toString().substring(0, 8));
-                AttributeModifier modifier = new AttributeModifier(key, amount, operation, slotGroup);
-                meta.addAttributeModifier(attribute, modifier);
-                if (attrConfig.id() != null && !attrConfig.id().isBlank()) {
-                    resolved.put(attrConfig.id(), amount);
+                AttributeModifier modifier = buildAttributeModifierCompat(plugin, attrName, amount, opName, slotGroup);
+                if (modifier != null) {
+                    meta.addAttributeModifier(attribute, modifier);
+                    if (attrConfig.id() != null && !attrConfig.id().isBlank()) {
+                        resolved.put(attrConfig.id(), amount);
+                    }
                 }
             } catch (IllegalArgumentException e) {
                 plugin.getLogger().warning(e.getMessage());
@@ -228,13 +213,13 @@ public final class ItemFactory {
         return resolved.isEmpty() ? java.util.Collections.emptyMap() : java.util.Collections.unmodifiableMap(resolved);
     }
 
-    private EquipmentSlotGroup parseSlotGroup(String rawSlot, String pieceKey) {
+    private Object parseSlotGroup(String rawSlot, String pieceKey) {
         if (rawSlot == null || rawSlot.isBlank() || rawSlot.equalsIgnoreCase("ALL")
                 || rawSlot.equalsIgnoreCase("ANY")) {
             if (pieceKey != null) {
                 return parseSlotFromPiece(pieceKey);
             }
-            return EquipmentSlotGroup.ANY;
+            return getSlotGroupCompat("ANY");
         }
 
         String slotUpper = rawSlot.toUpperCase(java.util.Locale.ROOT);
@@ -248,22 +233,22 @@ public final class ItemFactory {
         };
 
         try {
-            EquipmentSlotGroup group = EquipmentSlotGroup.getByName(mappedSlot);
-            return group != null ? group : EquipmentSlotGroup.ANY;
+            Object group = getSlotGroupCompat(mappedSlot);
+            return group != null ? group : getSlotGroupCompat("ANY");
         } catch (Exception e) {
-            return EquipmentSlotGroup.ANY;
+            return getSlotGroupCompat("ANY");
         }
     }
 
-    private EquipmentSlotGroup parseSlotFromPiece(String pieceKey) {
+    private Object parseSlotFromPiece(String pieceKey) {
         String key = pieceKey.toUpperCase(java.util.Locale.ROOT);
         return switch (key) {
-            case "HELMET" -> EquipmentSlotGroup.HEAD;
-            case "CHESTPLATE" -> EquipmentSlotGroup.CHEST;
-            case "LEGGINGS" -> EquipmentSlotGroup.LEGS;
-            case "BOOTS" -> EquipmentSlotGroup.FEET;
-            case "SWORD", "AXE", "PICKAXE", "SHOVEL", "HOE", "TOOLS" -> EquipmentSlotGroup.MAINHAND;
-            default -> EquipmentSlotGroup.ANY;
+            case "HELMET" -> getSlotGroupCompat("HEAD");
+            case "CHESTPLATE" -> getSlotGroupCompat("CHEST");
+            case "LEGGINGS" -> getSlotGroupCompat("LEGS");
+            case "BOOTS" -> getSlotGroupCompat("FEET");
+            case "SWORD", "AXE", "PICKAXE", "SHOVEL", "HOE", "TOOLS" -> getSlotGroupCompat("MAINHAND");
+            default -> getSlotGroupCompat("ANY");
         };
     }
 
@@ -292,7 +277,17 @@ public final class ItemFactory {
             for (PotionEffectSettings eff : resolvedList) {
                 try {
                     NamespacedKey key = NamespacedKey.minecraft(eff.type().toLowerCase(java.util.Locale.ROOT));
-                    PotionEffectType type = Registry.POTION_EFFECT_TYPE.get(key);
+                    PotionEffectType type = null;
+                    try {
+                        type = Registry.POTION_EFFECT_TYPE.get(key);
+                    } catch (Exception | NoSuchFieldError e) {
+                    }
+                    if (type == null) {
+                        type = PotionEffectType.getByKey(key);
+                    }
+                    if (type == null) {
+                        type = PotionEffectType.getByName(eff.type().toUpperCase(java.util.Locale.ROOT));
+                    }
                     if (type != null) {
                         PotionEffect potionEffect = new PotionEffect(type, eff.durationTicks(), eff.amplifier());
                         potionMeta.addCustomEffect(potionEffect, true);
@@ -320,7 +315,8 @@ public final class ItemFactory {
         return resolved.isEmpty() ? java.util.Collections.emptyMap() : java.util.Collections.unmodifiableMap(resolved);
     }
 
-    private void applyHeadTexture(ItemMeta meta, Material material, ItemDefinition definition, ItemBuildContext context) {
+    private void applyHeadTexture(ItemMeta meta, Material material, ItemDefinition definition,
+            ItemBuildContext context) {
         if (material != Material.PLAYER_HEAD) {
             return;
         }
@@ -365,7 +361,8 @@ public final class ItemFactory {
             return looksLikeBase64(raw) ? raw : null;
         }
 
-        // Intuitive fallback: if `heads-texture.<kitId>` exists, use it without forcing `kits.<kit>.head`.
+        // Intuitive fallback: if `heads-texture.<kitId>` exists, use it without forcing
+        // `kits.<kit>.head`.
         String byKitId = plugin.getConfig().getString("heads-texture." + context.kitId());
         if (byKitId != null && !byKitId.isBlank()) {
             return byKitId;
@@ -522,7 +519,7 @@ public final class ItemFactory {
             }
         }
         if (glow && validEnchantments.isEmpty()) {
-            meta.addEnchant(Enchantment.UNBREAKING, 1, true);
+            ItemResolver.enchantment("unbreaking").ifPresent(e -> meta.addEnchant(e, 1, true));
         }
         return validEnchantments;
     }
@@ -728,6 +725,82 @@ public final class ItemFactory {
             ToolPiece.from(piece).ifPresent(pieces::add);
         }
         return pieces.isEmpty() ? Arrays.asList(ToolPiece.values()) : pieces;
+    }
+
+    // --- COMPATIBILITY HELPERS ---
+    private Object getSlotGroupCompat(String name) {
+        try {
+            Class<?> clazz = Class.forName("org.bukkit.inventory.EquipmentSlotGroup");
+            return clazz.getMethod("getByName", String.class).invoke(null, name);
+        } catch (Exception e) {
+            try {
+                if (name.equals("ANY"))
+                    return null;
+                if (name.equals("MAINHAND"))
+                    name = "HAND";
+                if (name.equals("OFFHAND"))
+                    name = "OFF_HAND";
+                return org.bukkit.inventory.EquipmentSlot.valueOf(name);
+            } catch (Exception ex) {
+                return null;
+            }
+        }
+    }
+
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    private AttributeModifier buildAttributeModifierCompat(zMItemsBuilder plugin, String attrName, double amount,
+            String opName, Object slot) {
+        try {
+            // Priority to 1.21 Constructor
+            Class<?> opClass = Class.forName("org.bukkit.attribute.AttributeModifier$Operation");
+            Object operation = null;
+            try {
+                operation = Enum.valueOf((Class<Enum>) opClass, opName);
+            } catch (Exception e) {
+                String mappedOp = switch (opName) {
+                    case "ADD_NUMBER", "ADDITION" -> "ADD_VALUE";
+                    case "ADD_SCALAR", "MULTIPLY_BASE" -> "ADD_MULTIPLIED_BASE";
+                    case "MULTIPLY_SCALAR_1", "MULTIPLY_TOTAL" -> "ADD_MULTIPLIED_TOTAL";
+                    default -> null;
+                };
+                if (mappedOp != null)
+                    operation = Enum.valueOf((Class<Enum>) opClass, mappedOp);
+            }
+            if (operation == null)
+                operation = Enum.valueOf((Class<Enum>) opClass, "ADD_VALUE");
+
+            Class<?> slotGroupClass = Class.forName("org.bukkit.inventory.EquipmentSlotGroup");
+            NamespacedKey key = new NamespacedKey(plugin,
+                    "custom_attr_" + UUID.randomUUID().toString().substring(0, 8));
+            java.lang.reflect.Constructor<AttributeModifier> constructor = AttributeModifier.class
+                    .getConstructor(NamespacedKey.class, double.class, opClass, slotGroupClass);
+            return constructor.newInstance(key, amount, operation, slot);
+        } catch (Exception e) {
+            // Fallback to 1.20 Constructor
+            AttributeModifier.Operation operation = null;
+            try {
+                operation = AttributeModifier.Operation.valueOf(opName);
+            } catch (Exception ex) {
+                String mappedOp = switch (opName) {
+                    case "ADD_VALUE", "ADDITION" -> "ADD_NUMBER";
+                    case "ADD_MULTIPLIED_BASE" -> "ADD_SCALAR";
+                    case "ADD_MULTIPLIED_TOTAL" -> "MULTIPLY_SCALAR_1";
+                    default -> null;
+                };
+                if (mappedOp != null)
+                    operation = AttributeModifier.Operation.valueOf(mappedOp);
+            }
+            if (operation == null)
+                operation = AttributeModifier.Operation.ADD_NUMBER;
+
+            UUID id = UUID.randomUUID();
+            String name = "custom_attr_" + attrName;
+            if (slot instanceof org.bukkit.inventory.EquipmentSlot eqSlot) {
+                return new AttributeModifier(id, name, amount, operation, eqSlot);
+            } else {
+                return new AttributeModifier(id, name, amount, operation);
+            }
+        }
     }
 
     private enum ArmorPiece {
