@@ -35,7 +35,7 @@ messages:
   info-id: "&7- ID: &f{id}"
   info-cmd: "&7- CustomModelData: &f{cmd}"
   info-none: "&eEste item no tiene id ni custom model data. &7(Material: &f{material}&7)"
-  update-title: "<bold><green>Hay una actualización</green></bold>"
+  update-title: "<bold><green>zMItemsBuilder | Actualización</green></bold>"
   update-subtitle: "&7Actual: &f{current_version} &8| &7Nueva: &a{latest_version}"
   update-available: "&eHay una nueva versión disponible: &f{latest_version}"
   update-link: "&7Abre la página de versión: &b<click:open_url:'{version_url}'><u>{version_url}</u></click>"

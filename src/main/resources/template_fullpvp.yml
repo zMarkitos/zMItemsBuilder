@@ -1,0 +1,159 @@
+# ======================================================================
+#       __  __ ___ _                     ____        _ _     _           
+#  ___|  \/  |_ _| |_ ___ _ __ ___  ___| __ ) _   _(_) | __| | ___ _ __ 
+# |_  / |\/| || || __/ _ \ '_ ` _ \/ __|  _ \| | | | | |/ _` |/ _ \ '__|
+#  / /| |  | || || ||  __/ | | | | \__ \ |_) | |_| | | | (_| |  __/ |   
+# /___|_|  |_|___|\__\___|_| |_| |_|___/____/ \__,_|_|_|\__,_|\___|_|   
+#                                                                       
+# ======================================================================
+#
+# Template FullPvP Servers
+config-version: 2
+
+settings:
+  language: ES
+  use-roman-numerals: true
+  secondary-color-mode: LIGHTER
+  use-rarity: true
+
+  sound:
+    enabled: true
+    type: ENTITY_EXPERIENCE_ORB_PICKUP
+    volume: 1.0
+    pitch: 1.0
+
+update-check:
+  enabled: true
+
+rarity:
+  fullpvp: ""
+
+display:
+  name-template: "&f{item_type} &8▸ {prefix_item}"
+  enchant-format: "   {primary_color}• &f{enchant_name} {secondary_color}{level}"
+  lore-template:
+    - "&7"
+    - " {primary_color}&l🕮&r {primary_color}Enchantments:"
+    - "{enchants}"
+    - "&7"
+    - " {primary_color}⌛ &fRarity: {primary_color}{rarity}"
+    - "&7"
+    - " {primary_color}₪ &fObtain this by capturing"
+    - " &fthe KOTHs in {secondary_color}minapvp&f."
+heads-texture:
+  fullpvp: ""
+# List items
+items:
+  fullpvp_armor:
+    mode: armor
+    material: NETHERITE
+    pieces: [helmet, chestplate, leggings, boots]
+    name: "&f{item_type} &8▸ {prefix_item}"
+    lore:
+      - ""
+      - " {gradient:🕮 Encantamientos:}"
+      - "{enchants}"
+    unbreakable: true
+    enchants:
+      protection:
+        base: 4
+        per-level: 5
+        max: 60
+      fire_protection:
+        base: 4
+        per-level: 5
+        max: 60
+      blast_protection:
+        base: 4
+        per-level: 5
+        max: 60
+      projectile_protection:
+        base: 4
+        per-level: 5
+        max: 60
+      mending:
+        base: 4
+        per-level: 5
+        max: 60
+    item-flags:
+      - HIDE_ENCHANTS
+    behavior-flags: []
+
+  fullpvp_sword:
+    mode: single
+    material: NETHERITE_SWORD
+    name: "&f{item_type} &8▸ {prefix_item}"
+    lore:
+      - ""
+      - " {gradient:🕮 Enchantments:}"
+      - "{enchants}"
+    unbreakable: true
+    enchants:
+      sharpness:
+        base: 4
+        per-level: 5
+        max: 60
+      mending:
+        base: 4
+        per-level: 5
+        max: 60
+      unbreaking:
+        base: 4
+        per-level: 5
+        max: 60
+    item-flags:
+      - HIDE_ENCHANTS
+    behavior-flags: []
+
+  fullpvp_tools:
+    mode: tools
+    material: NETHERITE
+    pieces: [pickaxe, axe, hoe, shovel]
+    name: "&f{item_type} &8▸ {prefix_item}"
+    lore:
+      - ""
+      - " {gradient:🕮 Encantamientos:}"
+      - "{enchants}"
+    unbreakable: true
+    enchants:
+      efficiency:
+        base: 4
+        per-level: 5
+        max: 60
+      mending:
+        base: 4
+        per-level: 5
+        max: 60
+      unbreaking:
+        base: 4
+        per-level: 5
+        max: 60
+    item-flags:
+      - HIDE_ENCHANTS
+    behavior-flags: []
+
+# List the kits
+kits:
+  fullpvp1:
+    rarity: fullpvp
+    level: 1
+    items:
+      - fullpvp_armor
+      - fullpvp_sword
+      - fullpvp_tools
+
+  fullpvp2:
+    rarity: fullpvp
+    level: 2
+    items:
+      - fullpvp_armor
+      - fullpvp_sword
+      - fullpvp_tools
+
+  fullpvp3:
+    rarity: fullpvp
+    level: 3
+    items:
+      - fullpvp_armor
+      - fullpvp_sword
+      - fullpvp_tools
