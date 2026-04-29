@@ -133,7 +133,10 @@ public final class ItemFactory {
         if (definition.customModelData() != null) {
             meta.setCustomModelData(definition.customModelData());
         }
-        ItemIdentityStore.write(plugin, meta, definition.itemIdentifier());
+        ItemIdentityStore.writeSourceKey(plugin, meta, definition.sourceKey());
+        if (definition.itemIdentifier() != null) {
+            ItemIdentityStore.write(plugin, meta, definition.itemIdentifier());
+        }
         applyItemFlags(meta, definition.itemFlags());
 
         item.setItemMeta(meta);
@@ -834,7 +837,8 @@ public final class ItemFactory {
     private enum ToolPiece {
         AXE("AXE", "axe"),
         HOE("HOE", "hoe"),
-        SHOVEL("SHOVEL", "shovel");
+        SHOVEL("SHOVEL", "shovel"),
+        PICKAXE("PICKAXE", "pickaxe");
 
         private final String suffix;
         private final String key;

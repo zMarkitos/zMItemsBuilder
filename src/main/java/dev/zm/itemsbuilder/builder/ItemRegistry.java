@@ -177,7 +177,8 @@ public final class ItemRegistry {
                 false,
                 false,
                 null,
-                itemId,
+                null,  // no explicit id_item
+                itemId, // sourceKey always set
                 List.of(),
                 List.of(),
                 List.of(),
@@ -212,7 +213,7 @@ public final class ItemRegistry {
         boolean glow = section.getBoolean("glow", false);
         Integer customModelData = parseOptionalInteger(section, "custom-model-data", "custom_model_data",
                 "customModelData");
-        String itemIdentifier = resolveItemIdentifier(id, section);
+        String itemIdentifier = resolveExplicitItemId(section);
         List<String> itemFlags = section.getStringList("item-flags");
         List<String> behaviorFlags = section.getStringList("behavior-flags");
         List<String> pieces = section.getStringList("pieces");
@@ -237,6 +238,7 @@ public final class ItemRegistry {
                 glow,
                 customModelData,
                 itemIdentifier,
+                id,
                 itemFlags,
                 behaviorFlags,
                 pieces,
@@ -244,10 +246,15 @@ public final class ItemRegistry {
                 attributes);
     }
 
-    private String resolveItemIdentifier(String fallbackId, ConfigurationSection section) {
-        String raw = firstNonBlank(section, fallbackId, "id_item", "id-item", "idItem");
-        String normalized = raw.trim().toLowerCase(Locale.ROOT);
-        return normalized.isEmpty() ? fallbackId : normalized;
+    /** Returns the explicit id_item value from config, or null when not configured. */
+    private String resolveExplicitItemId(ConfigurationSection section) {
+        for (String key : new String[]{"id_item", "id-item", "idItem"}) {
+            String raw = section.getString(key);
+            if (raw != null && !raw.trim().isEmpty()) {
+                return raw.trim().toLowerCase(Locale.ROOT);
+            }
+        }
+        return null;
     }
 
     private Integer parseOptionalInteger(ConfigurationSection section, String... keys) {

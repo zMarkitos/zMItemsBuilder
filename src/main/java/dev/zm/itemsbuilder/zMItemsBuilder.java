@@ -39,7 +39,8 @@ public final class zMItemsBuilder extends JavaPlugin {
 
         reloadPluginState();
 
-        PluginCommand command = Objects.requireNonNull(getCommand("zmitemsbuilder"), "Command zmitemsbuilder not found in plugin.yml");
+        PluginCommand command = Objects.requireNonNull(getCommand("zmitemsbuilder"),
+                "Command zmitemsbuilder not found in plugin.yml");
         zMItemsCommand executor = new zMItemsCommand(this);
         command.setExecutor(executor);
         command.setTabCompleter(executor);

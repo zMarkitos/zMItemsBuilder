@@ -22,7 +22,8 @@ public record ItemDefinition(
     boolean unbreakable,
     boolean glow,
     Integer customModelData,
-    String itemIdentifier,
+    String itemIdentifier,  // user-facing id_item (null when not explicitly configured)
+    String sourceKey,       // internal config key (always set; used for copy/lookup)
     List<String> itemFlags,
     List<String> behaviorFlags,
     List<String> pieces,
@@ -36,6 +37,7 @@ public record ItemDefinition(
             ? Collections.emptyMap()
             : Collections.unmodifiableMap(new LinkedHashMap<>(enchantments));
         itemIdentifier = normalizeIdentifier(itemIdentifier);
+        sourceKey = normalizeIdentifier(sourceKey);
         itemFlags = itemFlags == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(itemFlags));
         behaviorFlags = behaviorFlags == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(behaviorFlags));
         pieces = pieces == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(pieces));
@@ -44,10 +46,9 @@ public record ItemDefinition(
     }
 
     private static String normalizeIdentifier(String raw) {
-        if (raw == null) {
-            return null;
-        }
+        if (raw == null) return null;
         String normalized = raw.trim().toLowerCase(java.util.Locale.ROOT);
         return normalized.isEmpty() ? null : normalized;
     }
 }
+

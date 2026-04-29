@@ -8,7 +8,7 @@ description: Create and automate custom items, sets and scalable progression wit
 commands:
   zmitemsbuilder:
     description: Main command for zMItemsBuilder.
-    usage: /zmitems <create|reload|material|info>
+    usage: /zmitems <create|reload|material|info|lore>
     aliases: [zmitems, zmib]
     permission: zmitemsbuilder.use
 permissions:
@@ -29,4 +29,7 @@ permissions:
     default: true
   zmitemsbuilder.update:
     description: Allows receiving update notifications.
+    default: op
+  zmitemsbuilder.lore:
+    description: Allows editing the lore of held items.
     default: op

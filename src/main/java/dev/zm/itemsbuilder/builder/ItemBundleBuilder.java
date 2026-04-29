@@ -19,25 +19,23 @@ public final class ItemBundleBuilder {
     }
 
     public List<ItemStack> build(
-        ItemBundleDefinition kitDefinition,
-        String prefixRaw,
-        String prefixMiniMessage,
-        String primaryHex,
-        String secondaryHex,
-        List<String> prefixGradientColors
-    ) {
+            ItemBundleDefinition kitDefinition,
+            String prefixRaw,
+            String prefixMiniMessage,
+            String primaryHex,
+            String secondaryHex,
+            List<String> prefixGradientColors) {
         String rarity = plugin.getConfig().getString("rarity." + kitDefinition.rarity(), kitDefinition.rarity());
         ItemBuildContext context = new ItemBuildContext(
-            kitDefinition.id(),
-            rarity,
-            kitDefinition.level(),
-            kitDefinition.headTextureKey(),
-            prefixRaw,
-            prefixMiniMessage,
-            primaryHex,
-            secondaryHex,
-            prefixGradientColors
-        );
+                kitDefinition.id(),
+                rarity,
+                kitDefinition.level(),
+                kitDefinition.headTextureKey(),
+                prefixRaw,
+                prefixMiniMessage,
+                primaryHex,
+                secondaryHex,
+                prefixGradientColors);
 
         List<ItemStack> items = new ArrayList<>();
         for (String itemId : kitDefinition.itemIds()) {

@@ -17,7 +17,7 @@
 # WHAT CAN YOU CREATE?
 # ---------------------------------------------------------------------
 # - Armor sets (full armor automatically generated)
-# - Tool sets (axe, hoe, shovel)
+# - Tool sets (axe, hoe, shovel, pickaxe)
 # - Single items (weapons, tools, etc.)
 # - Custom items (keys, coins, shop items)
 # - Decorative or restricted blocks (non-placeable/craftable)
@@ -27,7 +27,7 @@
 # ---------------------------------------------------------------------
 # - `single`     → Creates one specific item
 # - `armor`  → Generates helmet, chestplate, leggings, boots
-# - `tools`   → Generates axe, hoe, shovel
+# - `tools`   → Generates axe, hoe, shovel, pickaxe
 #
 # ---------------------------------------------------------------------
 # USEFUL PLACEHOLDERS

@@ -1,6 +1,8 @@
 package dev.zm.itemsbuilder.util;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -11,13 +13,18 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 
 public final class TextUtils {
 
-    private static final Pattern HEX_PATTERN = Pattern.compile("&#([A-Fa-f0-9]{6})");
-    private static final Pattern LEGACY_PATTERN = Pattern.compile("&([0-9a-fk-orA-FK-OR])");
+    // Matches &#RRGGBB hex and &X legacy codes in a single pass
+    private static final Pattern CODE_PATTERN =
+            Pattern.compile("&#([A-Fa-f0-9]{6})|&([0-9a-fk-orA-FK-OR])");
+
+    // BungeeCord hex format &x&R&R&G&G&B&B → normalized to &#RRGGBB before the main pass
+    private static final Pattern BUNGEE_HEX_PATTERN =
+            Pattern.compile("(?i)&x&([0-9A-Fa-f])&([0-9A-Fa-f])&([0-9A-Fa-f])&([0-9A-Fa-f])&([0-9A-Fa-f])&([0-9A-Fa-f])");
+
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private static final Map<Character, String> LEGACY_MAP = legacyMap();
 
-    private TextUtils() {
-    }
+    private TextUtils() {}
 
     public static Component toComponent(String raw) {
         return MINI_MESSAGE.deserialize(toMiniMessage(raw));
@@ -27,21 +34,63 @@ public final class TextUtils {
         return toComponent(raw).decoration(TextDecoration.ITALIC, false);
     }
 
+    /**
+     * Converts a legacy &-coded string (including &#RRGGBB and BungeeCord &x format)
+     * into a MiniMessage string.
+     *
+     * Decorations (bold, italic, etc.) are properly closed with their matching closing tag
+     * when a color code resets them, matching Minecraft's legacy behavior where any color
+     * code clears all active formatting.
+     */
     public static String toMiniMessage(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return "";
-        }
-        String converted = replaceHex(raw);
-        Matcher matcher = LEGACY_PATTERN.matcher(converted);
-        StringBuilder output = new StringBuilder();
+        if (raw == null || raw.isBlank()) return "";
+
+        // Normalize BungeeCord hex (&x&R&R&G&G&B&B) to &#RRGGBB
+        String input = BUNGEE_HEX_PATTERN.matcher(raw)
+                .replaceAll(m -> "&#" + m.group(1) + m.group(2) + m.group(3)
+                        + m.group(4) + m.group(5) + m.group(6));
+
+        Matcher matcher = CODE_PATTERN.matcher(input);
+        StringBuilder output = new StringBuilder(input.length());
         int index = 0;
+        // Tracks decoration tags currently open (e.g. "<bold>") so they can be closed
+        List<String> activeDecorations = new ArrayList<>(4);
+
         while (matcher.find()) {
-            output.append(converted, index, matcher.start());
-            char code = Character.toLowerCase(matcher.group(1).charAt(0));
-            output.append(LEGACY_MAP.getOrDefault(code, ""));
+            output.append(input, index, matcher.start());
+
+            String hexColor = matcher.group(1); // &#RRGGBB
+            String legacyCode = matcher.group(2); // &X
+
+            if (hexColor != null) {
+                closeDecorations(output, activeDecorations);
+                output.append("<#").append(hexColor.toUpperCase()).append(">");
+            } else {
+                char code = Character.toLowerCase(legacyCode.charAt(0));
+                boolean isColor = (code >= '0' && code <= '9') || (code >= 'a' && code <= 'f');
+                boolean isReset = code == 'r';
+
+                if (isColor) {
+                    // Color code resets all active decorations in legacy Minecraft
+                    closeDecorations(output, activeDecorations);
+                    output.append(LEGACY_MAP.getOrDefault(code, ""));
+                } else if (isReset) {
+                    closeDecorations(output, activeDecorations);
+                    output.append("<reset>");
+                } else {
+                    // Decoration code (k/l/m/n/o)
+                    String tag = LEGACY_MAP.getOrDefault(code, "");
+                    if (!tag.isEmpty()) {
+                        output.append(tag);
+                        if (!activeDecorations.contains(tag)) {
+                            activeDecorations.add(tag);
+                        }
+                    }
+                }
+            }
             index = matcher.end();
         }
-        output.append(converted.substring(index));
+        output.append(input.substring(index));
         return output.toString();
     }
 
@@ -49,67 +98,44 @@ public final class TextUtils {
         String[] words = key.toLowerCase(Locale.ROOT).split("[_\\- ]+");
         StringBuilder builder = new StringBuilder();
         for (String word : words) {
-            if (word.isBlank()) {
-                continue;
-            }
-            if (!builder.isEmpty()) {
-                builder.append(' ');
-            }
+            if (word.isBlank()) continue;
+            if (!builder.isEmpty()) builder.append(' ');
             builder.append(Character.toUpperCase(word.charAt(0)));
-            if (word.length() > 1) {
-                builder.append(word.substring(1));
-            }
+            if (word.length() > 1) builder.append(word.substring(1));
         }
         return builder.toString();
     }
 
     public static String formatLevel(int level, boolean useRomanNumerals) {
-        if (!useRomanNumerals) {
-            return String.valueOf(level);
-        }
+        if (!useRomanNumerals) return String.valueOf(level);
         return toRomanNumeral(level);
     }
 
-    public static String gradient(String text, java.util.List<String> colors) {
-        if (text == null || text.isEmpty()) {
-            return "";
-        }
-        if (colors == null || colors.isEmpty()) {
-            return text;
-        }
-        if (colors.size() == 1) {
-            return "<#" + colors.get(0).toUpperCase(Locale.ROOT) + ">" + text;
-        }
-
-        StringBuilder builder = new StringBuilder();
-        builder.append("<gradient:");
+    public static String gradient(String text, List<String> colors) {
+        if (text == null || text.isEmpty()) return "";
+        if (colors == null || colors.isEmpty()) return text;
+        if (colors.size() == 1) return "<#" + colors.get(0).toUpperCase(Locale.ROOT) + ">" + text;
+        StringBuilder builder = new StringBuilder("<gradient:");
         for (int i = 0; i < colors.size(); i++) {
-            if (i > 0) {
-                builder.append(':');
-            }
+            if (i > 0) builder.append(':');
             builder.append('#').append(colors.get(i).toUpperCase(Locale.ROOT));
         }
         builder.append('>').append(text).append("</gradient>");
         return builder.toString();
     }
 
-    private static String replaceHex(String input) {
-        Matcher matcher = HEX_PATTERN.matcher(input);
-        StringBuilder output = new StringBuilder();
-        int index = 0;
-        while (matcher.find()) {
-            output.append(input, index, matcher.start());
-            output.append("<#").append(matcher.group(1)).append(">");
-            index = matcher.end();
+    // Closes all active decoration tags in reverse order (e.g. <bold> → </bold>)
+    private static void closeDecorations(StringBuilder sb, List<String> active) {
+        if (active.isEmpty()) return;
+        for (int i = active.size() - 1; i >= 0; i--) {
+            String tag = active.get(i); // e.g. "<bold>"
+            sb.append("</").append(tag.substring(1)); // → "</bold>"
         }
-        output.append(input.substring(index));
-        return output.toString();
+        active.clear();
     }
 
     private static String toRomanNumeral(int value) {
-        if (value <= 0) {
-            return String.valueOf(value);
-        }
+        if (value <= 0) return String.valueOf(value);
         int[] numbers = {1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1};
         String[] numerals = {"M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"};
         StringBuilder builder = new StringBuilder();
