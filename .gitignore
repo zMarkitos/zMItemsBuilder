@@ -1,2 +1,5 @@
 # Build output
 /target/
+
+.github/
+scratch/
