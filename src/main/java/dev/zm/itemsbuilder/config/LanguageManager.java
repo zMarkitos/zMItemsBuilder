@@ -8,6 +8,8 @@ import java.util.LinkedHashMap;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import net.kyori.adventure.text.Component;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -70,6 +72,19 @@ public final class LanguageManager {
 
     public Component rawMessage(String path) {
         return rawMessage(path, Collections.emptyMap());
+    }
+
+    public List<Component> rawMessageList(String path, Map<String, String> placeholders) {
+        List<String> raw = languageConfig.getStringList(path);
+        if (raw == null || raw.isEmpty()) {
+            return List.of();
+        }
+        List<Component> components = new ArrayList<>(raw.size());
+        for (String line : raw) {
+            String replaced = PlaceholderUtils.replace(line, placeholders);
+            components.add(TextUtils.toComponent(replaced));
+        }
+        return components;
     }
 
     public String enchantName(String key) {

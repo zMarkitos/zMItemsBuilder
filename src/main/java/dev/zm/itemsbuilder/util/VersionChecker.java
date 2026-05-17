@@ -13,6 +13,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
@@ -22,8 +24,10 @@ public final class VersionChecker {
 
     private static final String API_URL = "https://api.spigotmc.org/legacy/update.php?resource=%s";
     private static final String RESOURCE_ID = "134087";
-    private static final String VERSION_PAGE_URL = "https://www.spigotmc.org/resources/zmitemsbuilder-advanced-custom-items-system.%s/";
+    private static final String SPIGOT_PAGE_URL = "https://www.spigotmc.org/resources/zmitemsbuilder-advanced-custom-items-system.%s/";
+    private static final String MODRINTH_PAGE_URL = "https://modrinth.com/plugin/zmitemsbuilder";
     private static final String NOTIFICATION_PERMISSION = "zmitemsbuilder.update";
+    private static final Pattern NUMERIC_PARTS = Pattern.compile("\\d+");
 
     private final zMItemsBuilder plugin;
     private final HttpClient httpClient;
@@ -50,8 +54,7 @@ public final class VersionChecker {
             return;
         }
 
-        String currentVersion = sanitizeVersion(plugin.getDescription().getVersion());
-
+        String currentVersion = plugin.getDescription().getVersion();
         CompletableFuture<UpdateResult> future = checkAsync(currentVersion);
         this.updateFuture = future;
 
@@ -126,7 +129,7 @@ public final class VersionChecker {
                     return UpdateResult.disabled();
                 }
 
-                String latestVersion = sanitizeVersion(response.body().trim());
+                String latestVersion = response.body().trim();
 
                 if (latestVersion.isEmpty() || !isNewerVersion(latestVersion, currentVersion)) {
                     return UpdateResult.disabled();
@@ -136,7 +139,8 @@ public final class VersionChecker {
                         true,
                         currentVersion,
                         latestVersion,
-                        String.format(VERSION_PAGE_URL, RESOURCE_ID));
+                        String.format(SPIGOT_PAGE_URL, RESOURCE_ID),
+                        MODRINTH_PAGE_URL);
 
             } catch (Exception e) {
                 plugin.getLogger().warning("Spigot update check failed: " + e.getMessage());
@@ -172,10 +176,9 @@ public final class VersionChecker {
         if (version == null || version.isBlank())
             return parts;
 
-        for (String part : version.split("[^0-9]+")) {
-            if (part.isBlank())
-                continue;
-
+        Matcher matcher = NUMERIC_PARTS.matcher(version);
+        while (matcher.find()) {
+            String part = matcher.group();
             try {
                 parts.add(Integer.parseInt(part));
             } catch (NumberFormatException ignored) {
@@ -183,12 +186,6 @@ public final class VersionChecker {
             }
         }
         return parts;
-    }
-
-    private String sanitizeVersion(String version) {
-        if (version == null)
-            return "";
-        return version.replaceAll("[^0-9.]", "");
     }
 
     private void sendNotification(Player player, UpdateResult result) {
@@ -206,7 +203,7 @@ public final class VersionChecker {
                 Title.Times.times(Duration.ofSeconds(1), Duration.ofSeconds(4), Duration.ofSeconds(1))));
 
         player.sendMessage(plugin.language().message("update-available", placeholders));
-        player.sendMessage(plugin.language().message("update-link", placeholders));
+        player.sendMessage(plugin.language().message("update-links", placeholders));
     }
 
     private boolean canReceiveNotifications(Player player) {
@@ -217,16 +214,19 @@ public final class VersionChecker {
             boolean updateAvailable,
             String currentVersion,
             String latestVersion,
-            String versionPageUrl) {
+            String spigotUrl,
+            String modrinthUrl) {
         public static UpdateResult disabled() {
-            return new UpdateResult(false, "", "", "");
+            return new UpdateResult(false, "", "", "", "");
         }
 
         public Map<String, String> placeholders() {
             return Map.of(
                     "current_version", currentVersion,
                     "latest_version", latestVersion,
-                    "version_url", versionPageUrl);
+                    "version_url", spigotUrl,
+                    "spigot_url", spigotUrl,
+                    "modrinth_url", modrinthUrl);
         }
     }
 }

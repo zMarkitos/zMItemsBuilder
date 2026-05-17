@@ -1,41 +1,58 @@
 package dev.zm.itemsbuilder.command;
 
-import dev.zm.itemsbuilder.zMItemsBuilder;
-import dev.zm.itemsbuilder.config.PluginSettings;
-import dev.zm.itemsbuilder.builder.model.ItemBundleDefinition;
 import dev.zm.itemsbuilder.builder.model.ItemBehaviorFlag;
+import dev.zm.itemsbuilder.builder.model.ItemBundleDefinition;
 import dev.zm.itemsbuilder.builder.model.PotionEffectSettings;
+import dev.zm.itemsbuilder.config.PluginSettings;
 import dev.zm.itemsbuilder.util.ColorUtils;
 import dev.zm.itemsbuilder.util.ItemEffectsStore;
 import dev.zm.itemsbuilder.util.ItemFlagStore;
 import dev.zm.itemsbuilder.util.ItemIdentityStore;
 import dev.zm.itemsbuilder.util.ItemResolver;
 import dev.zm.itemsbuilder.util.LoreCopyWriter;
+import dev.zm.itemsbuilder.util.SavedItemStore;
 import dev.zm.itemsbuilder.util.TextUtils;
+import dev.zm.itemsbuilder.zMItemsBuilder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-public final class zMItemsCommand implements CommandExecutor, TabCompleter {
+public final class zMItemsCommand implements CommandExecutor, TabCompleter, Listener {
 
     private final zMItemsBuilder plugin;
     private static final List<String> MATERIAL_SUGGESTIONS = buildMaterialSuggestions();
     private static final List<String> LORE_SUB_ACTIONS = List.of("add", "remove", "set", "reset", "copy");
+    private static final List<String> ITEM_SUB_ACTIONS = List.of("save", "show", "give", "remove", "update");
+    private static final int SAVED_ITEMS_GUI_SIZE = 54;
+    private static final List<Integer> SAVED_ITEMS_CONTENT_SLOTS = buildSavedItemsContentSlots();
+    private static final int SAVED_ITEMS_PREV_SLOT = 45;
+    private static final int SAVED_ITEMS_CLOSE_SLOT = 49;
+    private static final int SAVED_ITEMS_NEXT_SLOT = 53;
 
     public zMItemsCommand(zMItemsBuilder plugin) {
         this.plugin = plugin;
@@ -55,11 +72,376 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter {
             case "material" -> handleMaterial(sender, args);
             case "info" -> handleInfo(sender);
             case "lore" -> handleLore(sender, args);
+            case "item" -> handleItem(sender, args);
             default -> {
                 sender.sendMessage(plugin.language().message("usage"));
                 yield true;
             }
         };
+    }
+
+    private boolean handleItem(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("zmitemsbuilder.item")) {
+            sender.sendMessage(plugin.language().message("no-permission"));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(plugin.language().message("usage-item"));
+            return true;
+        }
+
+        String action = args[1].toLowerCase(Locale.ROOT);
+        return switch (action) {
+            case "save" -> handleItemSave(sender, args);
+            case "show" -> handleItemShow(sender);
+            case "give" -> handleItemGive(sender, args);
+            case "remove" -> handleItemRemove(sender, args);
+            case "update" -> handleItemUpdate(sender, args);
+            default -> {
+                sender.sendMessage(plugin.language().message("usage-item"));
+                yield true;
+            }
+        };
+    }
+
+    private boolean handleItemSave(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.language().message("player-only"));
+            return true;
+        }
+        if (args.length < 3) {
+            sender.sendMessage(plugin.language().message("usage-item-save"));
+            return true;
+        }
+
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        if (inHand == null || inHand.getType().isAir()) {
+            sender.sendMessage(plugin.language().message("no-item-in-hand"));
+            return true;
+        }
+
+        String itemKey = plugin.savedItemStore().normalizeKey(args[2]);
+        SavedItemStore.SaveResult result = plugin.savedItemStore().saveItem(itemKey, inHand.clone());
+        if (result == SavedItemStore.SaveResult.INVALID) {
+            sender.sendMessage(plugin.language().message("item-invalid-name", Map.of("name", args[2])));
+            return true;
+        }
+        if (result == SavedItemStore.SaveResult.FAILED) {
+            sender.sendMessage(plugin.language().message("item-save-failed", Map.of("name", itemKey)));
+            return true;
+        }
+
+        String messageKey = result == SavedItemStore.SaveResult.CREATED ? "item-saved" : "item-updated";
+        sender.sendMessage(plugin.language().message(messageKey, Map.of("name", itemKey)));
+        return true;
+    }
+
+    private boolean handleItemShow(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.language().message("player-only"));
+            return true;
+        }
+
+        List<String> keys = plugin.savedItemStore().getKeys();
+        if (keys.isEmpty()) {
+            player.sendMessage(plugin.language().message("item-show-empty"));
+            return true;
+        }
+
+        openSavedItemsPage(player, 0);
+        return true;
+    }
+
+    private boolean handleItemGive(CommandSender sender, String[] args) {
+        if (args.length < 5) {
+            sender.sendMessage(plugin.language().message("usage-item-give"));
+            return true;
+        }
+
+        String targetName = args[2].replace("%", "");
+        Player target = Bukkit.getPlayerExact(targetName);
+        if (target == null) {
+            sender.sendMessage(plugin.language().message("item-player-not-found", Map.of("player", args[2])));
+            return true;
+        }
+
+        String key = plugin.savedItemStore().normalizeKey(args[3]);
+        Optional<ItemStack> baseItem = plugin.savedItemStore().getItem(key);
+        if (baseItem.isEmpty()) {
+            sender.sendMessage(plugin.language().message("item-not-found", Map.of("name", key)));
+            return true;
+        }
+
+        int amount = parsePositiveInt(args[4]);
+        if (amount < 1) {
+            sender.sendMessage(plugin.language().message("item-invalid-amount", Map.of("amount", args[4])));
+            return true;
+        }
+
+        ItemStack template = baseItem.get();
+        int maxStack = Math.max(1, template.getMaxStackSize());
+        int remaining = amount;
+        int dropped = 0;
+        while (remaining > 0) {
+            int stackAmount = Math.min(maxStack, remaining);
+            ItemStack give = template.clone();
+            give.setAmount(stackAmount);
+
+            Map<Integer, ItemStack> leftovers = target.getInventory().addItem(give);
+            if (!leftovers.isEmpty()) {
+                for (ItemStack leftover : leftovers.values()) {
+                    dropped += leftover.getAmount();
+                    target.getWorld().dropItemNaturally(target.getLocation(), leftover);
+                }
+            }
+            remaining -= stackAmount;
+        }
+
+        sender.sendMessage(plugin.language().message("item-give-success",
+                Map.of("player", target.getName(), "name", key, "amount", String.valueOf(amount), "dropped",
+                        String.valueOf(dropped))));
+        if (sender != target) {
+            target.sendMessage(
+                    plugin.language().message("item-received", Map.of("name", key, "amount", String.valueOf(amount))));
+        }
+        return true;
+    }
+
+    private boolean handleItemRemove(CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage(plugin.language().message("usage-item-remove"));
+            return true;
+        }
+
+        String key = plugin.savedItemStore().normalizeKey(args[2]);
+        if (!plugin.savedItemStore().isValidKey(key)) {
+            sender.sendMessage(plugin.language().message("item-invalid-name", Map.of("name", args[2])));
+            return true;
+        }
+
+        if (!plugin.savedItemStore().removeItem(key)) {
+            sender.sendMessage(plugin.language().message("item-not-found", Map.of("name", key)));
+            return true;
+        }
+
+        sender.sendMessage(plugin.language().message("item-removed", Map.of("name", key)));
+        return true;
+    }
+
+    private boolean handleItemUpdate(CommandSender sender, String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.language().message("player-only"));
+            return true;
+        }
+        if (args.length < 3) {
+            sender.sendMessage(plugin.language().message("usage-item-update"));
+            return true;
+        }
+
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        if (inHand == null || inHand.getType().isAir()) {
+            sender.sendMessage(plugin.language().message("no-item-in-hand"));
+            return true;
+        }
+
+        String key = plugin.savedItemStore().normalizeKey(args[2]);
+        if (!plugin.savedItemStore().isValidKey(key)) {
+            sender.sendMessage(plugin.language().message("item-invalid-name", Map.of("name", args[2])));
+            return true;
+        }
+        if (plugin.savedItemStore().getItem(key).isEmpty()) {
+            sender.sendMessage(plugin.language().message("item-not-found", Map.of("name", key)));
+            return true;
+        }
+
+        SavedItemStore.SaveResult result = plugin.savedItemStore().saveItem(key, inHand.clone());
+        if (result == SavedItemStore.SaveResult.FAILED) {
+            sender.sendMessage(plugin.language().message("item-save-failed", Map.of("name", key)));
+            return true;
+        }
+
+        sender.sendMessage(plugin.language().message("item-updated", Map.of("name", key)));
+        return true;
+    }
+
+    @EventHandler
+    public void onSavedItemClick(InventoryClickEvent event) {
+        if (!(event.getView().getTopInventory().getHolder() instanceof SavedItemsInventoryHolder holder)) {
+            return;
+        }
+        if (event.getRawSlot() < 0 || event.getRawSlot() >= event.getView().getTopInventory().getSize()) {
+            return;
+        }
+
+        event.setCancelled(true);
+
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        if (event.getClick() != ClickType.LEFT) {
+            return;
+        }
+
+        if (event.getRawSlot() == SAVED_ITEMS_PREV_SLOT) {
+            openSavedItemsPage(player, holder.page() - 1);
+            return;
+        }
+        if (event.getRawSlot() == SAVED_ITEMS_NEXT_SLOT) {
+            openSavedItemsPage(player, holder.page() + 1);
+            return;
+        }
+        if (event.getRawSlot() == SAVED_ITEMS_CLOSE_SLOT) {
+            player.closeInventory();
+            return;
+        }
+
+        String key = holder.getKeyBySlot(event.getRawSlot());
+        if (key == null) {
+            return;
+        }
+
+        Optional<ItemStack> item = plugin.savedItemStore().getItem(key);
+        if (item.isEmpty()) {
+            player.sendMessage(plugin.language().message("item-not-found", Map.of("name", key)));
+            return;
+        }
+
+        ItemStack give = item.get().clone();
+        Map<Integer, ItemStack> leftovers = player.getInventory().addItem(give);
+        if (!leftovers.isEmpty()) {
+            leftovers.values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+        }
+
+        player.sendMessage(plugin.language().message("item-gui-give", Map.of("name", key)));
+    }
+
+    private void openSavedItemsPage(Player player, int requestedPage) {
+        List<String> keys = plugin.savedItemStore().getKeys();
+        if (keys.isEmpty()) {
+            player.sendMessage(plugin.language().message("item-show-empty"));
+            player.closeInventory();
+            return;
+        }
+
+        int pageSize = SAVED_ITEMS_CONTENT_SLOTS.size();
+        int totalPages = Math.max(1, (int) Math.ceil(keys.size() / (double) pageSize));
+        int page = Math.max(0, Math.min(requestedPage, totalPages - 1));
+
+        SavedItemsInventoryHolder holder = new SavedItemsInventoryHolder(page);
+        String title = ChatColor.translateAlternateColorCodes('&',
+                legacyText(plugin.language().rawMessage(
+                        "messages.gui-saved-items-title",
+                        Map.of("page", String.valueOf(page + 1), "pages", String.valueOf(totalPages)))));
+        Inventory inventory = Bukkit.createInventory(holder, SAVED_ITEMS_GUI_SIZE, title);
+        holder.setInventory(inventory);
+
+        ItemStack border = createGuiButton(Material.GRAY_STAINED_GLASS_PANE, " ");
+        for (int slot = 0; slot < SAVED_ITEMS_GUI_SIZE; slot++) {
+            if (!SAVED_ITEMS_CONTENT_SLOTS.contains(slot)) {
+                inventory.setItem(slot, border);
+            }
+        }
+
+        int start = page * pageSize;
+        int endExclusive = Math.min(keys.size(), start + pageSize);
+        int contentIndex = 0;
+        for (int i = start; i < endExclusive; i++) {
+            String key = keys.get(i);
+            Optional<ItemStack> stored = plugin.savedItemStore().getItem(key);
+            if (stored.isEmpty()) {
+                continue;
+            }
+            ItemStack display = stored.get().clone();
+            ItemMeta meta = display.getItemMeta();
+            if (meta != null) {
+                Map<String, String> placeholders = Map.of("name", key);
+                if (meta.hasDisplayName() || meta.displayName() != null) {
+                    Component displayName = meta.displayName();
+                    if (displayName != null) {
+                        meta.displayName(nonItalic(displayName));
+                    }
+                } else {
+                    Component fallbackName = plugin.language().rawMessage("messages.item-gui-item-name", placeholders);
+                    meta.displayName(nonItalic(fallbackName));
+                }
+
+                List<Component> lore = safeGetLore(meta);
+                lore.add(Component.empty().decoration(TextDecoration.ITALIC, false));
+                List<Component> guiLore = plugin.language().rawMessageList("messages.item-gui-item-lore", placeholders);
+                for (Component line : guiLore) {
+                    lore.add(nonItalic(line));
+                }
+                meta.lore(lore);
+                display.setItemMeta(meta);
+            }
+
+            int targetSlot = SAVED_ITEMS_CONTENT_SLOTS.get(contentIndex++);
+            inventory.setItem(targetSlot, display);
+            holder.bindSlot(targetSlot, key);
+        }
+
+        if (page > 0) {
+            inventory.setItem(SAVED_ITEMS_PREV_SLOT,
+                    createGuiButton(
+                            Material.ARROW,
+                            plugin.language().rawMessage("messages.gui-prev-page-name"),
+                            plugin.language().rawMessageList("messages.gui-prev-page-lore", Map.of())));
+        }
+        if (page < totalPages - 1) {
+            inventory.setItem(SAVED_ITEMS_NEXT_SLOT,
+                    createGuiButton(
+                            Material.ARROW,
+                            plugin.language().rawMessage("messages.gui-next-page-name"),
+                            plugin.language().rawMessageList("messages.gui-next-page-lore", Map.of())));
+        }
+        inventory.setItem(SAVED_ITEMS_CLOSE_SLOT, createGuiCloseButton());
+
+        player.openInventory(inventory);
+    }
+
+    private ItemStack createGuiButton(Material material, String displayName) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', displayName));
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    private ItemStack createGuiButton(Material material, Component displayName, List<Component> lore) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.displayName(nonItalic(displayName));
+            if (lore != null && !lore.isEmpty()) {
+                List<Component> fixedLore = new ArrayList<>(lore.size());
+                for (Component line : lore) {
+                    fixedLore.add(nonItalic(line));
+                }
+                meta.lore(fixedLore);
+            }
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    private ItemStack createGuiCloseButton() {
+        ItemStack item = new ItemStack(Material.BARRIER);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.displayName(nonItalic(plugin.language().rawMessage("messages.button-close-name")));
+            List<Component> lore = plugin.language().rawMessageList("messages.button-close-lore", Map.of());
+            if (!lore.isEmpty()) {
+                List<Component> fixedLore = new ArrayList<>(lore.size());
+                for (Component line : lore) {
+                    fixedLore.add(nonItalic(line));
+                }
+                meta.lore(fixedLore);
+            }
+            item.setItemMeta(meta);
+        }
+        return item;
     }
 
     private boolean handleLore(CommandSender sender, String[] args) {
@@ -107,7 +489,7 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter {
         if (meta == null)
             return true;
 
-        List<net.kyori.adventure.text.Component> lore = safeGetLore(meta);
+        List<Component> lore = safeGetLore(meta);
         lore.add(TextUtils.toItemComponent(raw));
         meta.lore(lore);
         item.setItemMeta(meta);
@@ -134,7 +516,7 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter {
         if (meta == null)
             return true;
 
-        List<net.kyori.adventure.text.Component> lore = safeGetLore(meta);
+        List<Component> lore = safeGetLore(meta);
         if (lineNumber > lore.size()) {
             player.sendMessage(plugin.language().message("lore-line-out-of-range",
                     Map.of("line", String.valueOf(lineNumber), "size", String.valueOf(lore.size()))));
@@ -168,11 +550,9 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter {
         if (meta == null)
             return true;
 
-        List<net.kyori.adventure.text.Component> lore = safeGetLore(meta);
-
-        // Expand lore if the target line is beyond the current size
+        List<Component> lore = safeGetLore(meta);
         while (lore.size() < lineNumber) {
-            lore.add(net.kyori.adventure.text.Component.empty());
+            lore.add(Component.empty());
         }
         lore.set(lineNumber - 1, TextUtils.toItemComponent(raw));
         meta.lore(lore);
@@ -210,7 +590,6 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter {
             player.sendMessage(plugin.language().message("lore-copy-exists", Map.of("key", itemId)));
             return true;
         }
-
         if (result == LoreCopyWriter.CopyResult.FAILED) {
             player.sendMessage(plugin.language().message("lore-copy-failed", Map.of("key", itemId)));
             return true;
@@ -403,7 +782,7 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return filter(List.of("create", "reload", "material", "info", "lore"), args[0]);
+            return filter(List.of("create", "reload", "material", "info", "lore", "item"), args[0]);
         }
         if (args.length == 2 && "create".equalsIgnoreCase(args[0])) {
             return filter(plugin.itemRegistry().getBundleIds(), args[1]);
@@ -414,7 +793,24 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter {
         if (args.length == 2 && "lore".equalsIgnoreCase(args[0])) {
             return filter(LORE_SUB_ACTIONS, args[1]);
         }
-        // Context-aware lore tab completion
+        if (args.length == 2 && "item".equalsIgnoreCase(args[0])) {
+            return filter(ITEM_SUB_ACTIONS, args[1]);
+        }
+        if ("item".equalsIgnoreCase(args[0])) {
+            if (args.length == 3 && "give".equalsIgnoreCase(args[1])) {
+                return filter(Bukkit.getOnlinePlayers().stream().map(Player::getName).toList(), args[2]);
+            }
+            if (args.length == 3 && (("save".equalsIgnoreCase(args[1])) || "remove".equalsIgnoreCase(args[1])
+                    || "update".equalsIgnoreCase(args[1]))) {
+                return filter(plugin.savedItemStore().getKeys(), args[2]);
+            }
+            if (args.length == 4 && "give".equalsIgnoreCase(args[1])) {
+                return filter(plugin.savedItemStore().getKeys(), args[3]);
+            }
+            if (args.length == 5 && "give".equalsIgnoreCase(args[1])) {
+                return filter(List.of("1", "16", "32", "64"), args[4]);
+            }
+        }
         if ("lore".equalsIgnoreCase(args[0])) {
             if (!(sender instanceof Player player))
                 return Collections.emptyList();
@@ -423,7 +819,6 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter {
             ItemMeta meta = (inHand != null && !inHand.getType().isAir()) ? inHand.getItemMeta() : null;
             List<String> rawLore = (meta != null) ? LoreCopyWriter.getRawLore(meta) : Collections.emptyList();
 
-            // lore <add|remove|set|reset|copy> <line>
             if (args.length == 3) {
                 String action = args[1].toLowerCase(Locale.ROOT);
                 if (action.equals("remove") || action.equals("set")) {
@@ -435,13 +830,11 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter {
                 return Collections.emptyList();
             }
 
-            // lore set <line> <text...> | lore copy <id> <kit>
             if (args.length == 4) {
                 String action = args[1].toLowerCase(Locale.ROOT);
                 if (action.equals("set")) {
                     int lineNum = parsePositiveInt(args[2]);
                     if (lineNum > 0 && lineNum <= rawLore.size()) {
-                        // Suggest current text of the line (preserving hex colors)
                         return Collections.singletonList(rawLore.get(lineNum - 1));
                     }
                 }
@@ -482,13 +875,11 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter {
         return List.copyOf(materials);
     }
 
-    /** Returns a mutable copy of the item's lore list, never null. */
-    private static List<net.kyori.adventure.text.Component> safeGetLore(ItemMeta meta) {
-        List<net.kyori.adventure.text.Component> existing = meta.lore();
+    private static List<Component> safeGetLore(ItemMeta meta) {
+        List<Component> existing = meta.lore();
         return existing != null ? new ArrayList<>(existing) : new ArrayList<>();
     }
 
-    /** Joins args from startIndex onwards with spaces. */
     private static String joinFrom(String[] args, int startIndex) {
         StringBuilder sb = new StringBuilder();
         for (int i = startIndex; i < args.length; i++) {
@@ -499,13 +890,65 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter {
         return sb.toString();
     }
 
-    /** Parses a positive integer; returns -1 on invalid input. */
     private static int parsePositiveInt(String raw) {
         try {
             int v = Integer.parseInt(raw);
             return v > 0 ? v : -1;
         } catch (NumberFormatException e) {
             return -1;
+        }
+    }
+
+    private static List<Integer> buildSavedItemsContentSlots() {
+        List<Integer> slots = new ArrayList<>();
+        for (int row = 1; row <= 4; row++) {
+            int rowStart = row * 9;
+            for (int col = 1; col <= 7; col++) {
+                slots.add(rowStart + col);
+            }
+        }
+        return List.copyOf(slots);
+    }
+
+    private String legacyText(Component component) {
+        return net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection().serialize(component);
+    }
+
+    private Component nonItalic(Component component) {
+        if (component == null) {
+            return Component.empty().decoration(TextDecoration.ITALIC, false);
+        }
+        return component.decoration(TextDecoration.ITALIC, false);
+    }
+
+    private static final class SavedItemsInventoryHolder implements InventoryHolder {
+        private final Map<Integer, String> keyBySlot = new HashMap<>();
+        private final int page;
+        private Inventory inventory;
+
+        private SavedItemsInventoryHolder(int page) {
+            this.page = page;
+        }
+
+        @Override
+        public Inventory getInventory() {
+            return inventory;
+        }
+
+        public void setInventory(Inventory inventory) {
+            this.inventory = inventory;
+        }
+
+        public void bindSlot(int slot, String key) {
+            keyBySlot.put(slot, key);
+        }
+
+        public String getKeyBySlot(int slot) {
+            return keyBySlot.get(slot);
+        }
+
+        public int page() {
+            return page;
         }
     }
 }

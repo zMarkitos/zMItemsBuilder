@@ -18,6 +18,7 @@ public record ItemDefinition(
     List<String> lore,
     boolean loreDefined,
     Map<String, EnchantLevelRule> enchantments,
+    Map<String, String> enchantSlots,
     int amount,
     boolean unbreakable,
     boolean glow,
@@ -36,6 +37,9 @@ public record ItemDefinition(
         enchantments = enchantments == null
             ? Collections.emptyMap()
             : Collections.unmodifiableMap(new LinkedHashMap<>(enchantments));
+        enchantSlots = enchantSlots == null
+            ? Collections.emptyMap()
+            : Collections.unmodifiableMap(new LinkedHashMap<>(enchantSlots));
         itemIdentifier = normalizeIdentifier(itemIdentifier);
         sourceKey = normalizeIdentifier(sourceKey);
         itemFlags = itemFlags == null ? Collections.emptyList() : Collections.unmodifiableList(new ArrayList<>(itemFlags));
@@ -51,4 +55,3 @@ public record ItemDefinition(
         return normalized.isEmpty() ? null : normalized;
     }
 }
-

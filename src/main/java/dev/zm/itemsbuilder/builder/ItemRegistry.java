@@ -173,6 +173,7 @@ public final class ItemRegistry {
                 List.of(),
                 false,
                 parseLegacyEnchantments(section),
+                Map.of(),
                 1,
                 false,
                 false,
@@ -205,8 +206,10 @@ public final class ItemRegistry {
         boolean loreDefined = section.contains("lore");
         List<String> lore = section.getStringList("lore");
         Map<String, EnchantLevelRule> enchantments = parseEnchantments(section.getConfigurationSection("enchants"));
+        Map<String, String> enchantSlots = parseEnchantSlots(section);
         if (enchantments.isEmpty()) {
             enchantments = parseLegacyEnchantments(section);
+            enchantSlots = Map.of();
         }
         int amount = Math.max(1, section.getInt("amount", 1));
         boolean unbreakable = section.getBoolean("unbreakable", false);
@@ -233,6 +236,7 @@ public final class ItemRegistry {
                 lore,
                 loreDefined,
                 enchantments,
+                enchantSlots,
                 amount,
                 unbreakable,
                 glow,
@@ -327,6 +331,51 @@ public final class ItemRegistry {
             }
         }
         return enchantments;
+    }
+
+    private Map<String, String> parseEnchantSlots(ConfigurationSection itemSection) {
+        Map<String, String> slots = new LinkedHashMap<>();
+        if (itemSection == null) {
+            return slots;
+        }
+
+        // Preferred simple format:
+        // enchant-slots:
+        //   protection: HELMET
+        ConfigurationSection directSlots = itemSection.getConfigurationSection("enchant-slots");
+        if (directSlots != null) {
+            for (String enchantKey : directSlots.getKeys(false)) {
+                String slot = directSlots.getString(enchantKey);
+                if (slot == null || slot.isBlank()) {
+                    continue;
+                }
+                slots.put(enchantKey.toLowerCase(Locale.ROOT), slot.trim().toUpperCase(Locale.ROOT));
+            }
+        }
+
+        // Backward compatibility format:
+        // enchants:
+        //   protection:
+        //     value: 10
+        //     slot: HELMET
+        ConfigurationSection enchantsSection = itemSection.getConfigurationSection("enchants");
+        if (enchantsSection != null) {
+            for (String enchantKey : enchantsSection.getKeys(false)) {
+                if (!enchantsSection.isConfigurationSection(enchantKey)) {
+                    continue;
+                }
+                ConfigurationSection enchantSection = enchantsSection.getConfigurationSection(enchantKey);
+                if (enchantSection == null) {
+                    continue;
+                }
+                String slot = enchantSection.getString("slot");
+                if (slot == null || slot.isBlank()) {
+                    continue;
+                }
+                slots.put(enchantKey.toLowerCase(Locale.ROOT), slot.trim().toUpperCase(Locale.ROOT));
+            }
+        }
+        return slots;
     }
 
     private List<PotionEffectRule> parsePotionEffects(ConfigurationSection section) {

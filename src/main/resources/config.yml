@@ -278,9 +278,17 @@ items:
       - " {primary_color}₪ &fObtain this by buying"
       - " &fit at {secondary_color}store.servername.net&f."
     enchants:
+      # Fixed enchant levels (simple/intuitive):
+      #   protection: 10
+      # Optional slot per enchant:
+      #   enchant-slots:
+      #     protection: HELMET
+      # If a slot is not defined, it applies to all generated pieces.
       protection: 10
       unbreaking: 5
       mending: 5
+    enchant-slots:
+      protection: ALL
     item-flags:
       - HIDE_ENCHANTS
     behavior-flags: []

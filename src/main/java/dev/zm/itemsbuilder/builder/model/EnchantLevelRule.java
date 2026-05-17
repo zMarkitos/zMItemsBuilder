@@ -78,6 +78,12 @@ public final class EnchantLevelRule {
         if (section.contains("value")) {
             return from(section.get("value"));
         }
+        if (section.contains("level")) {
+            return from(section.get("level"));
+        }
+        if (section.contains("amount")) {
+            return from(section.get("amount"));
+        }
         if (section.contains("formula")) {
             return expression(String.valueOf(section.get("formula")));
         }

@@ -16,13 +16,16 @@
 # Ejemplo:
 #   <gradient:#F13713:#C14C36>Texto</gradient>
 
+version: 2
+
 messages:
   prefix: '<b><gradient:#F13713:#C14C36:#F13713>zMItemsBuilder</gradient></b> &8| &r'
+
   success: "&aKit &f{kit} &aentregado correctamente. Objetos: &f{count}&a, soltados: &f{dropped}&a."
   no-permission: "&cNo tienes permiso para hacer esto."
   kit-not-found: "&cEl kit &f{kit} &cno existe."
   reloaded: "&aConfiguración recargada correctamente."
-  usage: "&eUso: /zmitems <create|reload|material|info|lore>"
+  usage: "&eUso: /zmitems <create|reload|material|info|lore|item>"
   usage-create: "&eUso: /zmitems create <kit> <prefijo>"
   usage-material: "&eUso: /zmitems material <material>"
   player-only: "&cSolo un jugador puede ejecutar este comando."
@@ -67,6 +70,63 @@ messages:
   lore-copy-exists: "&cEl item &f{key} &cya existe en la configuración. No se ha modificado."
   lore-copy-failed: "&cError al guardar config.yml para la clave: &f{key}&c. Revisa la consola."
   lore-copy-kit: "&aItem &f{key} &aagregado al kit &f{kit}&a."
+  usage-item: "&eUso: /zmitems item <save|show|give|remove|update>"
+  usage-item-save: "&eUso: /zmitems item save <nombre_del_item>"
+  usage-item-give: "&eUso: /zmitems item give <jugador> <item_guardado> <cantidad>"
+  usage-item-remove: "&eUso: /zmitems item remove <nombre_del_item>"
+  usage-item-update: "&eUso: /zmitems item update <nombre_del_item>"
+  item-invalid-name: "&cNombre inválido: &f{name}&c. Usa solo letras, números, _ o - (máx. 48)."
+  item-save-failed: "&cNo se pudo guardar el item &f{name}&c. Revisa la consola."
+  item-saved: "&aItem guardado como &f{name}&a."
+  item-updated: "&aItem &f{name} &aactualizado."
+  item-show-empty: "&eNo hay items guardados todavía."
+  item-player-not-found: "&cJugador no encontrado: &f{player}"
+  item-not-found: "&cNo existe un item guardado con nombre &f{name}&c."
+  item-invalid-amount: "&cCantidad inválida: &f{amount}&c. Debe ser un entero positivo."
+  item-give-success: "&aEntregado &f{amount}x {name} &aa &f{player}&a. Caídos al suelo: &f{dropped}&a."
+  item-received: "&aHas recibido &f{amount}x {name}&a."
+  item-removed: "&aItem guardado &f{name} &aeliminado."
+  item-gui-give: "&aHas obtenido el item guardado &f{name}&a."
+  item-gui-item-name: "&#F13713&l■ &fItem guardado"
+  item-gui-item-lore:
+    - ""
+    - " &#F13713&l| &fClave: &#C14C36{name}"
+    - ""
+    - "&#F13713■ Dale clic para obtenerlo."
+  gui-prev-page-name: "&#1CC6FC&l← &fPágina anterior"
+  gui-prev-page-lore:
+    - ""
+    - " &#1CC6FC&l| &fVuelve a la página anterior."
+    - ""
+    - "&#1CC6FC■ Click para volver."
+  gui-next-page-name: "&fPágina siguiente &#C14C36&l→"
+  gui-next-page-lore:
+    - ""
+    - " &#C14C36&l| &fAvanza a la siguiente página."
+    - ""
+    - "&#C14C36■ Click para avanzar."
+  item-gui-key: "&eClave: &f{name}"
+  item-gui-click-get: "&aClick izquierdo para obtener este item"
+  gui-saved-items-title: "Items Guardados ({page}/{pages})"
+  gui-prev-page: "&#1CC6FC&l← &fPágina anterior"
+  gui-next-page: "&fPágina siguiente &#C14C36&l→"
+  # ------------------------
+  # GUI
+  # ------------------------
+  button-close-name: "&#F13713&l✕ Cerrar menú"
+  button-close-lore:
+    - ""
+    - " &#F13713&l| &fCierra este menú"
+    - " &#C14C36&l| &fVuelve al juego."
+    - ""
+    - "&#F13713■ Dale clic para cerrar."
+  # ------------------------
+  # Update checker (override style)
+  # ------------------------
+  update-title: "<bold><gradient:#F13713:#C14C36:#F13713>zMItemsBuilder | Actualización</gradient></bold>"
+  update-subtitle: " &#F13713• &fActual: &#C14C36{current_version} &8| &#F13713Nueva: &#C14C36{latest_version}"
+  update-available: " &#F13713■ &fHay una nueva versión disponible: &#C14C36{latest_version}"
+  update-links: " &#F13713■ &fDescargar: <click:open_url:'{modrinth_url}'><u><#F13713>Modrinth</#F13713></u></click>&f, <click:open_url:'{spigot_url}'><u><#C14C36>SpigotMC</#C14C36></u></click>"
 
 enchantments:
   protection: "Protección"

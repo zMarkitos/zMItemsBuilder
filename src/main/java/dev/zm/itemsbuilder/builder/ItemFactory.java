@@ -103,8 +103,13 @@ public final class ItemFactory {
         ItemMeta meta = item.getItemMeta();
 
         applyHeadTexture(meta, material, definition, context);
-        Map<String, Integer> validEnchantments = applyEnchantments(meta, definition.enchantments(), definition.glow(),
-                context.level());
+        Map<String, Integer> validEnchantments = applyEnchantments(
+                meta,
+                definition.enchantments(),
+                definition.enchantSlots(),
+                definition.glow(),
+                context.level(),
+                pieceKey);
         applyBehaviorFlags(meta, definition.behaviorFlags());
         Map<String, Double> resolvedAttributes = applyAttributes(meta, definition.attributes(), pieceKey, material,
                 context.level());
@@ -510,21 +515,69 @@ public final class ItemFactory {
         return m + ":" + (r < 10 ? "0" + r : String.valueOf(r));
     }
 
-    private Map<String, Integer> applyEnchantments(ItemMeta meta, Map<String, EnchantLevelRule> source, boolean glow,
-            int level) {
+    private Map<String, Integer> applyEnchantments(ItemMeta meta, Map<String, EnchantLevelRule> source,
+            Map<String, String> enchantSlots, boolean glow, int level, String pieceKey) {
         Map<String, Integer> validEnchantments = new LinkedHashMap<>();
         for (Map.Entry<String, EnchantLevelRule> entry : source.entrySet()) {
+            String enchantKey = entry.getKey().toLowerCase(java.util.Locale.ROOT);
+            String configuredSlot = enchantSlots == null ? null : enchantSlots.get(enchantKey);
+            if (!matchesEnchantSlot(configuredSlot, pieceKey)) {
+                continue;
+            }
             int enchantLevel = Math.max(1, entry.getValue().resolve(level));
-            Optional<Enchantment> enchantment = ItemResolver.enchantment(entry.getKey());
+            Optional<Enchantment> enchantment = ItemResolver.enchantment(enchantKey);
             if (enchantment.isPresent()) {
                 meta.addEnchant(enchantment.get(), enchantLevel, true);
-                validEnchantments.put(entry.getKey(), enchantLevel);
+                validEnchantments.put(enchantKey, enchantLevel);
             }
         }
         if (glow && validEnchantments.isEmpty()) {
             ItemResolver.enchantment("unbreaking").ifPresent(e -> meta.addEnchant(e, 1, true));
         }
         return validEnchantments;
+    }
+
+    private boolean matchesEnchantSlot(String configuredSlot, String pieceKey) {
+        if (pieceKey == null) {
+            return true;
+        }
+        if (configuredSlot == null || configuredSlot.isBlank()) {
+            return true;
+        }
+        String slot = configuredSlot.trim().toUpperCase(java.util.Locale.ROOT);
+        if (slot.equals("ALL") || slot.equals("ANY")) {
+            return true;
+        }
+
+        String piece = pieceKey.trim().toUpperCase(java.util.Locale.ROOT);
+        String normalizedPiece = switch (piece) {
+            case "HELMETH", "HEAD" -> "HELMET";
+            case "CHEST" -> "CHESTPLATE";
+            case "LEGS" -> "LEGGINGS";
+            case "FEET" -> "BOOTS";
+            case "HAND", "MAINHAND", "TOOLS" -> "MAINHAND";
+            case "OFF_HAND" -> "OFFHAND";
+            default -> piece;
+        };
+        String normalizedSlot = switch (slot) {
+            case "HELMETH", "HEAD" -> "HELMET";
+            case "CHEST" -> "CHESTPLATE";
+            case "LEGS" -> "LEGGINGS";
+            case "FEET" -> "BOOTS";
+            case "HAND", "MAINHAND", "TOOLS" -> "MAINHAND";
+            case "OFF_HAND" -> "OFFHAND";
+            default -> slot;
+        };
+
+        if (normalizedSlot.equals("MAINHAND")) {
+            return normalizedPiece.equals("MAINHAND")
+                    || normalizedPiece.equals("AXE")
+                    || normalizedPiece.equals("HOE")
+                    || normalizedPiece.equals("SHOVEL")
+                    || normalizedPiece.equals("PICKAXE")
+                    || normalizedPiece.equals("SWORD");
+        }
+        return normalizedSlot.equals(normalizedPiece);
     }
 
     private List<Component> buildLore(ItemDefinition definition, ItemBuildContext context,
