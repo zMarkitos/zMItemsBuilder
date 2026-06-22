@@ -10,8 +10,11 @@ import java.util.regex.Pattern;
 
 public final class ColorUtils {
 
-    private static final Pattern HEX_COLOR = Pattern.compile("(?:&#|<#)([A-Fa-f0-9]{6})>?");
-    private static final Pattern COLOR_TOKEN = Pattern.compile("(?:&#|<#)[A-Fa-f0-9]{6}>?|&[0-9a-fk-orA-FK-OR]|<[^>]+>");
+    private static final Pattern HEX_COLOR = Pattern.compile(
+            "(?:&#|<#)([A-Fa-f0-9]{6})>?|(?i)&x(?:&([0-9A-Fa-f])){6}");
+    private static final Pattern LEGACY_HEX = Pattern.compile("(?i)&x&([0-9A-Fa-f])&([0-9A-Fa-f])&([0-9A-Fa-f])&([0-9A-Fa-f])&([0-9A-Fa-f])&([0-9A-Fa-f])");
+    private static final Pattern COLOR_TOKEN = Pattern.compile(
+            "(?:&#|<#)[A-Fa-f0-9]{6}>?|(?i)&x(?:&[0-9A-Fa-f]){6}|&[0-9a-fk-orA-FK-OR]|<[^>]+>");
 
     private ColorUtils() {
     }
@@ -22,7 +25,11 @@ public final class ColorUtils {
         }
         Matcher matcher = HEX_COLOR.matcher(input);
         if (matcher.find()) {
-            return Optional.of(matcher.group(1).toUpperCase(Locale.ROOT));
+            String direct = matcher.group(1);
+            if (direct != null) {
+                return Optional.of(direct.toUpperCase(Locale.ROOT));
+            }
+            return Optional.of(legacyHexToRgb(input, matcher.start()).toUpperCase(Locale.ROOT));
         }
         return Optional.empty();
     }
@@ -31,10 +38,25 @@ public final class ColorUtils {
         if (input == null || input.isBlank()) {
             return List.of();
         }
-        Matcher matcher = HEX_COLOR.matcher(input);
         LinkedHashSet<String> colors = new LinkedHashSet<>();
+        Matcher legacyMatcher = LEGACY_HEX.matcher(input);
+        while (legacyMatcher.find()) {
+            colors.add((legacyMatcher.group(1) + legacyMatcher.group(2) + legacyMatcher.group(3)
+                    + legacyMatcher.group(4) + legacyMatcher.group(5) + legacyMatcher.group(6))
+                    .toUpperCase(Locale.ROOT));
+        }
+
+        Matcher matcher = HEX_COLOR.matcher(input);
         while (matcher.find()) {
-            colors.add(matcher.group(1).toUpperCase(Locale.ROOT));
+            String direct = matcher.group(1);
+            if (direct != null) {
+                colors.add(direct.toUpperCase(Locale.ROOT));
+                continue;
+            }
+            String hex = legacyHexToRgb(input, matcher.start());
+            if (!hex.isBlank()) {
+                colors.add(hex.toUpperCase(Locale.ROOT));
+            }
         }
         return List.copyOf(colors);
     }
@@ -69,5 +91,36 @@ public final class ColorUtils {
 
     private static int shift(int value, int delta) {
         return Math.max(0, Math.min(255, value + delta));
+    }
+
+    private static String legacyHexToRgb(String input, int start) {
+        if (input == null || start < 0 || start + 13 >= input.length()) {
+            return "";
+        }
+        if (Character.toLowerCase(input.charAt(start)) != '&'
+                || Character.toLowerCase(input.charAt(start + 1)) != 'x') {
+            return "";
+        }
+
+        StringBuilder hex = new StringBuilder(6);
+        int index = start + 2;
+        for (int i = 0; i < 6; i++) {
+            if (index + 1 >= input.length() || input.charAt(index) != '&') {
+                return "";
+            }
+            char digit = input.charAt(index + 1);
+            if (!isHexDigit(digit)) {
+                return "";
+            }
+            hex.append(Character.toUpperCase(digit));
+            index += 2;
+        }
+        return hex.toString();
+    }
+
+    private static boolean isHexDigit(char c) {
+        return (c >= '0' && c <= '9')
+                || (c >= 'a' && c <= 'f')
+                || (c >= 'A' && c <= 'F');
     }
 }

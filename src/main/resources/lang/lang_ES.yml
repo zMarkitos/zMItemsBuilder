@@ -16,7 +16,7 @@
 # Ejemplo:
 #   <gradient:#F13713:#C14C36>Texto</gradient>
 
-version: 2
+version: 3
 
 messages:
   prefix: '<b><gradient:#F13713:#C14C36:#F13713>zMItemsBuilder</gradient></b> &8| &r'
@@ -25,7 +25,7 @@ messages:
   no-permission: "&cNo tienes permiso para hacer esto."
   kit-not-found: "&cEl kit &f{kit} &cno existe."
   reloaded: "&aConfiguración recargada correctamente."
-  usage: "&eUso: /zmitems <create|reload|material|info|lore|item>"
+  usage: "&eUso: /zmitems <create|reload|material|info|lore|enchant|rename|migrate|item>"
   usage-create: "&eUso: /zmitems create <kit> <prefijo>"
   usage-material: "&eUso: /zmitems material <material>"
   player-only: "&cSolo un jugador puede ejecutar este comando."
@@ -65,6 +65,36 @@ messages:
   lore-invalid-line: "&cNúmero de línea inválido: &f{line}&c. Debe ser un entero positivo."
   lore-line-out-of-range: "&cLa línea &f{line} &cestá fuera del rango. El lore tiene &f{size} &clínea(s)."
   usage-lore-copy: "&eUso: /zmitems lore copy <name> [kit_id]"
+  usage-enchant: "&eUso: /zmitems enchant <encantamiento> <cantidad>"
+  usage-rename: "&eUso: /rename <nuevo_nombre> | /zmitems rename <nuevo_nombre>"
+  enchant-invalid-name: "&cEncantamiento inválido: &f{enchant}"
+  enchant-invalid-amount: "&cCantidad inválida: &f{amount}&c. Usa 0 para remover el encantamiento."
+  enchant-update-failed: "&cNo se pudo aplicar el encantamiento &f{enchant}&c."
+  enchant-updated: "&aEncantamiento &f{enchant} &aactualizado al nivel &f{level}&a."
+  enchant-removed: "&aEncantamiento &f{enchant} &aremovido."
+  rename-success: "&aNombre cambiado a: &f{text}"
+  rename-removed: "&aNombre personalizado eliminado."
+  rename-suggested: "&eSugerencia actual: &f{text}"
+  migrate-open: "&eAbre el inventario y coloca los items que quieres migrar. Luego usa aceptar o cancelar."
+  migrate-title: "Migrar Items"
+
+  migrate-accept-name: "&#55FF55&l✔ &fMigrar Items"
+  migrate-accept-lore:
+    - ""
+    - " &#55FF55&l| &fActualiza items antiguos"
+    - " &#55FF55&l| &fy conserva sus datos."
+    - ""
+    - "&#55FF55■ Dale clic para migrar."
+
+  migrate-cancel-name: "&#F13713&l✕ &fCancelar"
+  migrate-cancel-lore:
+    - ""
+    - " &#F13713&l| &fCierra el menú"
+    - " &#C14C36&l| &fy devuelve los items."
+    - ""
+    - "&#F13713■ Dale clic para cancelar."
+  migrate-accepted: "&aMigración completada. Items revisados: &f{total}&a, migrados: &f{migrated}&a."
+  migrate-cancelled: "&eMigración cancelada. Todos los items fueron devueltos."
   lore-copy-created: "&aLa clave &f{key} &ase ha creado en config.yml con &f{lines} &alínea(s) de lore. Usa /zmitems reload para aplicar. &7Consejo: puedes usar {primary_color}, {secondary_color} y {gradient:Texto} en nombre/lore."
   lore-copy-updated: "&aLore de &f{key} &aactualizado en config.yml con &f{lines} &alínea(s). Usa /zmitems reload para aplicar."
   lore-copy-exists: "&cEl item &f{key} &cya existe en la configuración. No se ha modificado."

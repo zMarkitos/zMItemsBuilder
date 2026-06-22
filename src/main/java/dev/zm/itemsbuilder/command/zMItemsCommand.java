@@ -5,6 +5,7 @@ import dev.zm.itemsbuilder.builder.model.ItemBundleDefinition;
 import dev.zm.itemsbuilder.builder.model.PotionEffectSettings;
 import dev.zm.itemsbuilder.config.PluginSettings;
 import dev.zm.itemsbuilder.util.ColorUtils;
+import dev.zm.itemsbuilder.util.ItemEnchantLoreManager;
 import dev.zm.itemsbuilder.util.ItemEffectsStore;
 import dev.zm.itemsbuilder.util.ItemFlagStore;
 import dev.zm.itemsbuilder.util.ItemIdentityStore;
@@ -25,6 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.ChatColor;
@@ -32,11 +34,15 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.Registry;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -44,8 +50,14 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 public final class zMItemsCommand implements CommandExecutor, TabCompleter, Listener {
 
+    private static final LegacyComponentSerializer LEGACY_AMP = LegacyComponentSerializer.builder()
+            .character('&')
+            .hexColors()
+            .build();
     private final zMItemsBuilder plugin;
     private static final List<String> MATERIAL_SUGGESTIONS = buildMaterialSuggestions();
+    private static final List<String> ENCHANT_SUGGESTIONS = buildEnchantSuggestions();
+    private static final List<String> ENCHANT_AMOUNT_SUGGESTIONS = List.of("0", "1", "2", "3", "4", "5", "10");
     private static final List<String> LORE_SUB_ACTIONS = List.of("add", "remove", "set", "reset", "copy");
     private static final List<String> ITEM_SUB_ACTIONS = List.of("save", "show", "give", "remove", "update");
     private static final int SAVED_ITEMS_GUI_SIZE = 54;
@@ -53,13 +65,23 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
     private static final int SAVED_ITEMS_PREV_SLOT = 45;
     private static final int SAVED_ITEMS_CLOSE_SLOT = 49;
     private static final int SAVED_ITEMS_NEXT_SLOT = 53;
+    private static final int MIGRATE_GUI_SIZE = 54;
+    private static final int MIGRATE_ACCEPT_SLOT = 49;
+    private static final int MIGRATE_CANCEL_SLOT = 53;
+    private final ItemEnchantLoreManager enchantLoreManager;
 
     public zMItemsCommand(zMItemsBuilder plugin) {
         this.plugin = plugin;
+        this.enchantLoreManager = new ItemEnchantLoreManager(plugin, plugin.language());
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        String commandName = command.getName().toLowerCase(Locale.ROOT);
+        if ("irename".equals(commandName) || "rename".equals(label.toLowerCase(Locale.ROOT))) {
+            return handleRename(sender, args, 0);
+        }
+
         if (args.length == 0) {
             sender.sendMessage(plugin.language().message("usage"));
             return true;
@@ -72,6 +94,9 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
             case "material" -> handleMaterial(sender, args);
             case "info" -> handleInfo(sender);
             case "lore" -> handleLore(sender, args);
+            case "enchant" -> handleEnchant(sender, args);
+            case "rename" -> handleRename(sender, args, 1);
+            case "migrate" -> handleMigrate(sender);
             case "item" -> handleItem(sender, args);
             default -> {
                 sender.sendMessage(plugin.language().message("usage"));
@@ -267,6 +292,9 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
     @EventHandler
     public void onSavedItemClick(InventoryClickEvent event) {
         if (!(event.getView().getTopInventory().getHolder() instanceof SavedItemsInventoryHolder holder)) {
+            if (event.getView().getTopInventory().getHolder() instanceof MigrationInventoryHolder migrationHolder) {
+                handleMigrationClick(event, migrationHolder);
+            }
             return;
         }
         if (event.getRawSlot() < 0 || event.getRawSlot() >= event.getView().getTopInventory().getSize()) {
@@ -313,6 +341,45 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
         }
 
         player.sendMessage(plugin.language().message("item-gui-give", Map.of("name", key)));
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onMigrationDrag(InventoryDragEvent event) {
+        if (!(event.getView().getTopInventory().getHolder() instanceof MigrationInventoryHolder)) {
+            return;
+        }
+        int topSize = event.getView().getTopInventory().getSize();
+        for (int rawSlot : event.getRawSlots()) {
+            if (rawSlot >= topSize - 9 && rawSlot < topSize) {
+                event.setCancelled(true);
+                return;
+            }
+        }
+    }
+
+    @EventHandler
+    public void onMigrationClose(InventoryCloseEvent event) {
+        if (!(event.getInventory().getHolder() instanceof MigrationInventoryHolder holder)) {
+            return;
+        }
+        if (holder.hasReturned()) {
+            return;
+        }
+
+        List<ItemStack> toReturn = holder.consumeReturnItems();
+        if ((toReturn == null || toReturn.isEmpty()) && event.getInventory() != null) {
+            toReturn = collectMigrationItems(event.getInventory(), false);
+            holder.setReturnItems(toReturn);
+        }
+
+        if (toReturn == null || toReturn.isEmpty() || !(event.getPlayer() instanceof Player player)) {
+            holder.markReturned();
+            return;
+        }
+
+        List<ItemStack> finalReturn = List.copyOf(toReturn);
+        holder.markReturned();
+        Bukkit.getScheduler().runTask(plugin, () -> returnItems(player, finalReturn));
     }
 
     private void openSavedItemsPage(Player player, int requestedPage) {
@@ -397,6 +464,143 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
         inventory.setItem(SAVED_ITEMS_CLOSE_SLOT, createGuiCloseButton());
 
         player.openInventory(inventory);
+    }
+
+    private void openMigrationMenu(Player player) {
+        MigrationInventoryHolder holder = new MigrationInventoryHolder();
+        String title = legacyText(plugin.language().rawMessage("messages.migrate-title"));
+        Inventory inventory = Bukkit.createInventory(holder, MIGRATE_GUI_SIZE, title);
+        holder.setInventory(inventory);
+
+        ItemStack border = createGuiButton(Material.GRAY_STAINED_GLASS_PANE, " ");
+        for (int slot = MIGRATE_GUI_SIZE - 9; slot < MIGRATE_GUI_SIZE; slot++) {
+            inventory.setItem(slot, border);
+        }
+
+        inventory.setItem(MIGRATE_ACCEPT_SLOT, createGuiButton(
+                Material.LIME_CONCRETE,
+                plugin.language().rawMessage("messages.migrate-accept-name"),
+                plugin.language().rawMessageList("messages.migrate-accept-lore", Map.of())));
+        inventory.setItem(MIGRATE_CANCEL_SLOT, createGuiButton(
+                Material.BARRIER,
+                plugin.language().rawMessage("messages.migrate-cancel-name"),
+                plugin.language().rawMessageList("messages.migrate-cancel-lore", Map.of())));
+
+        player.sendMessage(plugin.language().message("migrate-open"));
+        player.openInventory(inventory);
+    }
+
+    private void handleMigrationClick(InventoryClickEvent event, MigrationInventoryHolder holder) {
+        if (event.getRawSlot() < 0 || event.getRawSlot() >= event.getView().getTopInventory().getSize()) {
+            return;
+        }
+
+        int topSize = event.getView().getTopInventory().getSize();
+        int acceptSlot = MIGRATE_ACCEPT_SLOT;
+        int cancelSlot = MIGRATE_CANCEL_SLOT;
+        int protectedRowStart = topSize - 9;
+
+        if (event.getRawSlot() >= protectedRowStart) {
+            if (event.getRawSlot() == acceptSlot) {
+                event.setCancelled(true);
+                finalizeMigration(event, holder, true);
+                return;
+            }
+            if (event.getRawSlot() == cancelSlot) {
+                event.setCancelled(true);
+                finalizeMigration(event, holder, false);
+                return;
+            }
+            event.setCancelled(true);
+            return;
+        }
+    }
+
+    private void finalizeMigration(InventoryClickEvent event, MigrationInventoryHolder holder, boolean migrate) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        Inventory inventory = event.getView().getTopInventory();
+        List<ItemStack> items = collectMigrationItems(inventory, migrate);
+        holder.setReturnItems(items);
+        inventory.clear();
+        player.closeInventory();
+        if (migrate) {
+            player.sendMessage(plugin.language().message("migrate-accepted",
+                    Map.of("migrated", String.valueOf(holder.getMigratedCount()),
+                            "total", String.valueOf(holder.getTotalCount()))));
+        } else {
+            player.sendMessage(plugin.language().message("migrate-cancelled"));
+        }
+    }
+
+    private List<ItemStack> collectMigrationItems(Inventory inventory, boolean migrate) {
+        List<ItemStack> items = new ArrayList<>();
+        int migrated = 0;
+        int total = 0;
+        int protectedRowStart = inventory.getSize() - 9;
+        for (int slot = 0; slot < protectedRowStart; slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (stack == null || stack.getType().isAir()) {
+                continue;
+            }
+            total++;
+            ItemStack copy = stack.clone();
+            if (migrate && applyLegacySourceKey(copy)) {
+                migrated++;
+            }
+            items.add(copy);
+        }
+
+        if (inventory.getHolder() instanceof MigrationInventoryHolder holder) {
+            holder.setMigrationStats(total, migrated);
+        }
+        return items;
+    }
+
+    private boolean applyLegacySourceKey(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) {
+            return false;
+        }
+        if (ItemIdentityStore.readRawSourceKey(plugin, item) != null) {
+            return false;
+        }
+
+        String legacyKey = ItemIdentityStore.read(plugin, item);
+        if (legacyKey == null || legacyKey.isBlank()) {
+            return false;
+        }
+        if (plugin.itemRegistry().getItem(legacyKey).isEmpty()) {
+            return false;
+        }
+
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) {
+            return false;
+        }
+        ItemIdentityStore.writeSourceKey(plugin, meta, legacyKey);
+        item.setItemMeta(meta);
+        return true;
+    }
+
+    private void returnItems(Player player, List<ItemStack> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+
+        List<ItemStack> leftoverDrops = new ArrayList<>();
+        for (ItemStack item : items) {
+            if (item == null || item.getType().isAir()) {
+                continue;
+            }
+            Map<Integer, ItemStack> leftovers = player.getInventory().addItem(item);
+            if (!leftovers.isEmpty()) {
+                leftoverDrops.addAll(leftovers.values());
+            }
+        }
+        for (ItemStack leftover : leftoverDrops) {
+            player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+        }
     }
 
     private ItemStack createGuiButton(Material material, String displayName) {
@@ -484,7 +688,7 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
             return true;
         }
 
-        String raw = joinFrom(args, 2);
+        String raw = unwrapQuotedText(joinFrom(args, 2));
         ItemMeta meta = item.getItemMeta();
         if (meta == null)
             return true;
@@ -545,7 +749,7 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
             return true;
         }
 
-        String raw = joinFrom(args, 3);
+        String raw = unwrapQuotedText(joinFrom(args, 3));
         ItemMeta meta = item.getItemMeta();
         if (meta == null)
             return true;
@@ -560,6 +764,107 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
 
         player.sendMessage(plugin.language().message("lore-set-success",
                 Map.of("line", String.valueOf(lineNumber), "text", raw)));
+        return true;
+    }
+
+    private boolean handleEnchant(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("zmitemsbuilder.enchant")) {
+            sender.sendMessage(plugin.language().message("no-permission"));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.language().message("player-only"));
+            return true;
+        }
+        if (args.length < 3) {
+            sender.sendMessage(plugin.language().message("usage-enchant"));
+            return true;
+        }
+
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        if (inHand == null || inHand.getType().isAir()) {
+            sender.sendMessage(plugin.language().message("no-item-in-hand"));
+            return true;
+        }
+
+        String enchantKey = args[1].trim().toLowerCase(Locale.ROOT);
+        Optional<Enchantment> enchantment = ItemResolver.enchantment(enchantKey);
+        if (enchantment.isEmpty()) {
+            sender.sendMessage(plugin.language().message("enchant-invalid-name", Map.of("enchant", args[1])));
+            return true;
+        }
+
+        int amount = parseNonNegativeInt(args[2]);
+        if (amount < 0) {
+            sender.sendMessage(plugin.language().message("enchant-invalid-amount", Map.of("amount", args[2])));
+            return true;
+        }
+
+        if (!enchantLoreManager.applyEnchantChange(inHand, enchantment.get().getKey().getKey(), amount)) {
+            sender.sendMessage(plugin.language().message("enchant-update-failed", Map.of("enchant", enchantKey)));
+            return true;
+        }
+
+        String enchantName = plugin.language().enchantName(enchantment.get().getKey().getKey());
+        if (amount == 0) {
+            player.sendMessage(plugin.language().message("enchant-removed", Map.of("enchant", enchantName)));
+        } else {
+            player.sendMessage(plugin.language().message("enchant-updated",
+                    Map.of("enchant", enchantName, "level", String.valueOf(amount))));
+        }
+        return true;
+    }
+
+    private boolean handleRename(CommandSender sender, String[] args, int textStartIndex) {
+        if (!sender.hasPermission("zmitemsbuilder.rename")) {
+            sender.sendMessage(plugin.language().message("no-permission"));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.language().message("player-only"));
+            return true;
+        }
+        if (args.length < textStartIndex + 1) {
+            sender.sendMessage(plugin.language().message("usage-rename"));
+            return true;
+        }
+
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        if (inHand == null || inHand.getType().isAir()) {
+            sender.sendMessage(plugin.language().message("no-item-in-hand"));
+            return true;
+        }
+
+        String raw = unwrapQuotedText(joinFrom(args, textStartIndex));
+        ItemMeta meta = inHand.getItemMeta();
+        if (meta == null) {
+            return true;
+        }
+
+        if (raw == null || raw.isBlank()) {
+            meta.setDisplayName(null);
+            inHand.setItemMeta(meta);
+            player.sendMessage(plugin.language().message("rename-removed"));
+            return true;
+        }
+
+        meta.displayName(TextUtils.toItemComponent(raw));
+        inHand.setItemMeta(meta);
+        player.sendMessage(plugin.language().message("rename-success", Map.of("text", raw)));
+        return true;
+    }
+
+    private boolean handleMigrate(CommandSender sender) {
+        if (!sender.hasPermission("zmitemsbuilder.migrate")) {
+            sender.sendMessage(plugin.language().message("no-permission"));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.language().message("player-only"));
+            return true;
+        }
+
+        openMigrationMenu(player);
         return true;
     }
 
@@ -781,14 +1086,29 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        String commandName = command.getName().toLowerCase(Locale.ROOT);
+        String label = alias.toLowerCase(Locale.ROOT);
+        if ("irename".equals(commandName) || "rename".equals(label)) {
+            return completeRename(sender, args);
+        }
+
         if (args.length == 1) {
-            return filter(List.of("create", "reload", "material", "info", "lore", "item"), args[0]);
+            return filter(List.of("create", "reload", "material", "info", "lore", "enchant", "rename", "migrate", "item"), args[0]);
         }
         if (args.length == 2 && "create".equalsIgnoreCase(args[0])) {
             return filter(plugin.itemRegistry().getBundleIds(), args[1]);
         }
         if (args.length == 2 && "material".equalsIgnoreCase(args[0])) {
             return filter(MATERIAL_SUGGESTIONS, args[1]);
+        }
+        if (args.length == 2 && "enchant".equalsIgnoreCase(args[0])) {
+            return filter(ENCHANT_SUGGESTIONS, args[1]);
+        }
+        if (args.length == 3 && "enchant".equalsIgnoreCase(args[0])) {
+            return filter(ENCHANT_AMOUNT_SUGGESTIONS, args[2]);
+        }
+        if (args.length == 2 && "rename".equalsIgnoreCase(args[0])) {
+            return completeRename(sender, new String[] { args[1] });
         }
         if (args.length == 2 && "lore".equalsIgnoreCase(args[0])) {
             return filter(LORE_SUB_ACTIONS, args[1]);
@@ -821,6 +1141,13 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
 
             if (args.length == 3) {
                 String action = args[1].toLowerCase(Locale.ROOT);
+                if (action.equals("add")) {
+                    return filter(quoteLoreSuggestions(rawLore), args[2]);
+                }
+            }
+
+            if (args.length == 3) {
+                String action = args[1].toLowerCase(Locale.ROOT);
                 if (action.equals("remove") || action.equals("set")) {
                     List<String> lines = new ArrayList<>();
                     for (int i = 1; i <= rawLore.size(); i++)
@@ -835,7 +1162,7 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
                 if (action.equals("set")) {
                     int lineNum = parsePositiveInt(args[2]);
                     if (lineNum > 0 && lineNum <= rawLore.size()) {
-                        return Collections.singletonList(rawLore.get(lineNum - 1));
+                        return Collections.singletonList(quoteLoreLineForCompletion(rawLore.get(lineNum - 1)));
                     }
                 }
                 if (action.equals("copy")) {
@@ -860,6 +1187,49 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
                 .toList();
     }
 
+    private List<String> completeRename(CommandSender sender, String[] partialArgs) {
+        if (!(sender instanceof Player player)) {
+            return Collections.emptyList();
+        }
+
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        ItemMeta meta = (inHand != null && !inHand.getType().isAir()) ? inHand.getItemMeta() : null;
+        String rawSuggestion = currentRenameSuggestionRaw(meta);
+        if (rawSuggestion == null) {
+            return Collections.emptyList();
+        }
+
+        String input = partialArgs.length == 0 ? "" : partialArgs[0];
+        String quoted = quoteInput(rawSuggestion);
+        if (input == null || input.isBlank()) {
+            return List.of(quoted);
+        }
+
+        String lowered = input.toLowerCase(Locale.ROOT);
+        String plain = ColorUtils.stripColorCodes(rawSuggestion).toLowerCase(Locale.ROOT);
+        String quotedLower = quoted.toLowerCase(Locale.ROOT);
+        if (quotedLower.startsWith(lowered) || rawSuggestion.toLowerCase(Locale.ROOT).startsWith(lowered)
+                || plain.startsWith(lowered)) {
+            return List.of(quoted);
+        }
+        return Collections.emptyList();
+    }
+
+    private String currentRenameSuggestionRaw(ItemMeta meta) {
+        if (meta == null) {
+            return null;
+        }
+        Component displayName = meta.displayName();
+        if (displayName == null) {
+            return null;
+        }
+        String raw = LEGACY_AMP.serialize(displayName);
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        return raw;
+    }
+
     private boolean hasAnyPermission(CommandSender sender, String primary, String legacy) {
         return sender.hasPermission(primary) || sender.hasPermission(legacy);
     }
@@ -873,6 +1243,26 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
                 .sorted()
                 .forEach(materials::add);
         return List.copyOf(materials);
+    }
+
+    private static List<String> buildEnchantSuggestions() {
+        List<String> enchants = new ArrayList<>();
+        try {
+            Registry.ENCHANTMENT.stream()
+                    .map(Enchantment::getKey)
+                    .map(key -> key.getKey().toLowerCase(Locale.ROOT))
+                    .distinct()
+                    .sorted()
+                    .forEach(enchants::add);
+        } catch (Exception ignored) {
+            for (Enchantment enchantment : Enchantment.values()) {
+                if (enchantment != null && enchantment.getKey() != null) {
+                    enchants.add(enchantment.getKey().getKey().toLowerCase(Locale.ROOT));
+                }
+            }
+            enchants.sort(String::compareTo);
+        }
+        return List.copyOf(enchants);
     }
 
     private static List<Component> safeGetLore(ItemMeta meta) {
@@ -897,6 +1287,76 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
         } catch (NumberFormatException e) {
             return -1;
         }
+    }
+
+    private static int parseNonNegativeInt(String raw) {
+        try {
+            int v = Integer.parseInt(raw);
+            return v >= 0 ? v : -1;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    private static List<String> quoteLoreSuggestions(List<String> rawLore) {
+        if (rawLore == null || rawLore.isEmpty()) {
+            return List.of();
+        }
+        List<String> quoted = new ArrayList<>(rawLore.size());
+        for (String line : rawLore) {
+            quoted.add(quoteLoreLineForCompletion(line));
+        }
+        return List.copyOf(quoted);
+    }
+
+    private static String quoteLoreLine(String raw) {
+        if (raw == null) {
+            return "\"\"";
+        }
+        String escaped = raw.replace("\\", "\\\\").replace("\"", "\\\"");
+        return "\"" + escaped + "\"";
+    }
+
+    private static String quoteLoreLineForCompletion(String raw) {
+        if (raw == null) {
+            return "\"\"";
+        }
+        int leadingSpaces = 0;
+        while (leadingSpaces < raw.length() && raw.charAt(leadingSpaces) == ' ') {
+            leadingSpaces++;
+        }
+
+        StringBuilder builder = new StringBuilder(raw.length() + leadingSpaces);
+        builder.append('"');
+        for (int i = 0; i < leadingSpaces; i++) {
+            builder.append("\\s");
+        }
+        builder.append(raw.substring(leadingSpaces)
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\""));
+        builder.append('"');
+        return builder.toString();
+    }
+
+    private static String quoteInput(String raw) {
+        if (raw == null) {
+            return "\"\"";
+        }
+        String escaped = raw.replace("\\", "\\\\").replace("\"", "\\\"");
+        return "\"" + escaped + "\"";
+    }
+
+    private static String unwrapQuotedText(String raw) {
+        if (raw == null || raw.length() < 2) {
+            return raw;
+        }
+        if (raw.startsWith("\"") && raw.endsWith("\"")) {
+            String inner = raw.substring(1, raw.length() - 1);
+            return inner.replace("\\\"", "\"")
+                    .replace("\\\\", "\\")
+                    .replace("\\s", " ");
+        }
+        return raw;
     }
 
     private static List<Integer> buildSavedItemsContentSlots() {
@@ -949,6 +1409,52 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
 
         public int page() {
             return page;
+        }
+    }
+
+    private static final class MigrationInventoryHolder implements InventoryHolder {
+        private Inventory inventory;
+        private List<ItemStack> returnItems = List.of();
+        private boolean returned;
+        private int totalCount;
+        private int migratedCount;
+
+        @Override
+        public Inventory getInventory() {
+            return inventory;
+        }
+
+        public void setInventory(Inventory inventory) {
+            this.inventory = inventory;
+        }
+
+        public void setReturnItems(List<ItemStack> returnItems) {
+            this.returnItems = returnItems == null ? List.of() : List.copyOf(returnItems);
+        }
+
+        public List<ItemStack> consumeReturnItems() {
+            return returnItems;
+        }
+
+        public void markReturned() {
+            this.returned = true;
+        }
+
+        public boolean hasReturned() {
+            return returned;
+        }
+
+        public void setMigrationStats(int totalCount, int migratedCount) {
+            this.totalCount = totalCount;
+            this.migratedCount = migratedCount;
+        }
+
+        public int getTotalCount() {
+            return totalCount;
+        }
+
+        public int getMigratedCount() {
+            return migratedCount;
         }
     }
 }

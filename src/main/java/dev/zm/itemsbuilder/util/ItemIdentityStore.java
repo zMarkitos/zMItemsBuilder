@@ -44,10 +44,17 @@ public final class ItemIdentityStore {
     public static String readSourceKey(JavaPlugin plugin, ItemStack item) {
         if (plugin == null || item == null || !item.hasItemMeta()) return null;
         PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
-        String sourceKey = normalize(pdc.get(key(plugin, KEY_SOURCE), PersistentDataType.STRING));
+        String sourceKey = readRawSourceKey(plugin, item);
         if (sourceKey != null) return sourceKey;
         // Fallback: items built before this change only have the item_id key.
         return normalize(pdc.get(key(plugin, KEY_ITEM_ID), PersistentDataType.STRING));
+    }
+
+    /** Reads only the internal source key without legacy fallback. */
+    public static String readRawSourceKey(JavaPlugin plugin, ItemStack item) {
+        if (plugin == null || item == null || !item.hasItemMeta()) return null;
+        PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
+        return normalize(pdc.get(key(plugin, KEY_SOURCE), PersistentDataType.STRING));
     }
 
     public static boolean matches(JavaPlugin plugin, ItemStack item, String expectedItemId) {

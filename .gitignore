@@ -3,3 +3,7 @@
 
 .github/
 scratch/
+
+.gitignore
+
+.agents

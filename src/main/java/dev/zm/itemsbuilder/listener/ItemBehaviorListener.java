@@ -1,6 +1,7 @@
 package dev.zm.itemsbuilder.listener;
 
 import dev.zm.itemsbuilder.builder.model.ItemBehaviorFlag;
+import dev.zm.itemsbuilder.util.ItemEnchantLoreManager;
 import dev.zm.itemsbuilder.util.ItemFlagStore;
 import dev.zm.itemsbuilder.zMItemsBuilder;
 import java.util.List;
@@ -36,9 +37,11 @@ import dev.zm.itemsbuilder.util.ItemIdentityStore;
 public final class ItemBehaviorListener implements Listener {
 
     private final zMItemsBuilder plugin;
+    private final ItemEnchantLoreManager enchantLoreManager;
 
     public ItemBehaviorListener(zMItemsBuilder plugin) {
         this.plugin = plugin;
+        this.enchantLoreManager = new ItemEnchantLoreManager(plugin, plugin.language());
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -139,6 +142,19 @@ public final class ItemBehaviorListener implements Listener {
     public void onPrepareAnvil(PrepareAnvilEvent event) {
         if (containsFlag(event.getInventory().getContents(), ItemBehaviorFlag.NO_ANVIL, ItemBehaviorFlag.NO_CRAFT)) {
             event.getInventory().setResult(null);
+            return;
+        }
+
+        ItemStack currentResult = event.getResult();
+        if (currentResult == null || currentResult.getType().isAir()) {
+            return;
+        }
+        ItemStack result = currentResult.clone();
+        if (ItemIdentityStore.readSourceKey(plugin, result) == null) {
+            return;
+        }
+        if (enchantLoreManager.syncEnchantLore(result)) {
+            event.setResult(result);
         }
     }
 

@@ -27,7 +27,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class zMItemsBuilder extends JavaPlugin {
     private static final int CURRENT_CONFIG_VERSION = 2;
-    private static final int CURRENT_LANG_VERSION = 2;
+    private static final int CURRENT_LANG_VERSION = 3;
     private static final DateTimeFormatter BACKUP_TS = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
     private PluginSettings settings;
@@ -57,6 +57,11 @@ public final class zMItemsBuilder extends JavaPlugin {
         zMItemsCommand executor = new zMItemsCommand(this);
         command.setExecutor(executor);
         command.setTabCompleter(executor);
+
+        PluginCommand renameCommand = Objects.requireNonNull(getCommand("irename"),
+                "Command irename not found in plugin.yml");
+        renameCommand.setExecutor(executor);
+        renameCommand.setTabCompleter(executor);
 
         PluginManager pluginManager = getServer().getPluginManager();
         pluginManager.registerEvents(new ItemBehaviorListener(this), this);
@@ -112,6 +117,7 @@ public final class zMItemsBuilder extends JavaPlugin {
 
     private void migrateManagedFilesIfNeeded() {
         File backupDir = null;
+        File langBackupDir = null;
 
         File configFile = new File(getDataFolder(), "config.yml");
         int configVersion = readVersion(configFile, "config-version", -1);
@@ -129,8 +135,8 @@ public final class zMItemsBuilder extends JavaPlugin {
             File langFile = new File(getDataFolder(), langPath);
             int langVersion = readVersion(langFile, "version", -1);
             if (langVersion < CURRENT_LANG_VERSION) {
-                backupDir = ensureBackupDirectory(backupDir);
-                if (backupDir != null && backupFile(langFile, backupDir)) {
+                langBackupDir = ensureLanguageBackupDirectory(langBackupDir);
+                if (langBackupDir != null && backupFile(langFile, langBackupDir)) {
                     saveResource(langPath, true);
                     log("&eMigrated " + langPath + " to version " + CURRENT_LANG_VERSION + ".");
                 } else {
@@ -158,6 +164,18 @@ public final class zMItemsBuilder extends JavaPlugin {
             backupDir = new File(getDataFolder(), "backups/" + LocalDateTime.now().format(BACKUP_TS));
             if (!backupDir.exists() && !backupDir.mkdirs()) {
                 getLogger().warning("Could not create backup directory: " + backupDir.getAbsolutePath());
+                return null;
+            }
+        }
+        return backupDir;
+    }
+
+    private File ensureLanguageBackupDirectory(File existingBackupDir) {
+        File backupDir = existingBackupDir;
+        if (backupDir == null) {
+            backupDir = new File(getDataFolder(), "backups/lang/" + LocalDateTime.now().format(BACKUP_TS));
+            if (!backupDir.exists() && !backupDir.mkdirs()) {
+                getLogger().warning("Could not create language backup directory: " + backupDir.getAbsolutePath());
                 return null;
             }
         }
