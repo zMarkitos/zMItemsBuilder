@@ -1,9 +1,0 @@
-# Build output
-/target/
-
-.github/
-scratch/
-
-.gitignore
-
-.agents
