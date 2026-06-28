@@ -1,47 +1,135 @@
 # =====================================================
-# zMItemsBuilder - Language File (ES)
+# zMItemsBuilder - Language File (EN)
 # =====================================================
-#
-# This file contains all translatable messages used by the plugin.
-# You can fully customize texts, colors and formats.
-#
-# -----------------------------------------------------
-# FORMAT & COLOR SUPPORT
-# -----------------------------------------------------
 # - Supports Minecraft color codes using "&" (e.g. &a, &c, &7)
 # - Supports HEX colors: &#RRGGBB
-# - Supports MiniMessage formatting:
-#   <gradient>, <bold>, <click>, <hover>, etc.
-#
-# Example:
-#   <gradient:#F13713:#C14C36>Text</gradient>
+# - Supports MiniMessage formatting: <gradient>, <bold>, <click>, <hover>, etc.
 
-version: 3
+version: 4
 
 messages:
   prefix: '<b><gradient:#F13713:#C14C36:#F13713>zMItemsBuilder</gradient></b> &8| &r'
 
-  success: "&aKit &f{kit} &adelivered. Items: &f{count}&a, dropped: &f{dropped}&a."
+  # ------------------------
+  # General
+  # ------------------------
   no-permission: "&cYou do not have permission."
-  kit-not-found: "&cKit &f{kit} &cdoes not exist."
-  reloaded: "&aConfiguration reloaded successfully."
-  usage: "&eUsage: /zmitems <create|reload|material|info|lore|enchant|rename|migrate|item>"
-  usage-create: "&eUsage: /zmitems create <kit> <prefix>"
-  usage-material: "&eUsage: /zmitems material <material>"
   player-only: "&cOnly a player can run this command."
-  invalid-hex-prefix: "&cYou must include a valid hex color. Example: &f/zmitems create especial (COLOR RGB HEXADECIMAL)"
-  invalid-material: "&cInvalid material: &f{material}"
   no-item-in-hand: "&cYou are not holding any item."
+  reloaded: "&aConfiguration reloaded successfully."
+
+  # ------------------------
+  # Help
+  # ------------------------
+  usage: "&eUsage: /zmitems <help|create|reload|material|info|lore|enchant|rename|migrate|item>"
+  help-lines:
+    - ""
+    - "<b><gradient:#F13713:#C14C36:#F13713>zMItemsBuilder</gradient></b> &8| &r&eCommands"
+    - ""
+    - " &f/zmitems create &7<kit> <hex> &8— &7Build a kit with the given color."
+    - " &f/zmitems material &7<material> &8— &7Change the material of the item in hand."
+    - " &f/zmitems rename &7<name> &8— &7Set or remove the display name of the item in hand."
+    - " &f/zmitems enchant &7<enchant> <level> &8— &7Add/remove an enchant (0 = remove)."
+    - " &f/zmitems lore &7<add|remove|set|reset|copy> &8— &7Edit the lore of the item in hand."
+    - " &f/zmitems info &8— &7Show ID and model data of the item in hand."
+    - " &f/zmitems item &7<save|show|give|remove|update> &8— &7Manage saved item snapshots."
+    - " &f/zmitems migrate &8— &7Update old items to the new source key format."
+    - " &f/zmitems reload &8— &7Reload configuration and language files."
+    - ""
+
+  # ------------------------
+  # Create
+  # ------------------------
+  usage-create: "&eUsage: /zmitems create <kit> <prefix>"
+  kit-not-found: "&cKit &f{kit} &cdoes not exist."
+  invalid-hex-prefix: "&cYou must include a valid hex color. Example: &f/zmitems create mykit &#FF0000"
+  success: "&aKit &f{kit} &adelivered. Items: &f{count}&a, dropped: &f{dropped}&a."
+
+  # ------------------------
+  # Material
+  # ------------------------
+  usage-material: "&eUsage: /zmitems material <material>"
+  invalid-material: "&cInvalid material: &f{material}"
   material-updated: "&aMaterial changed to &f{material}&a."
+
+  # ------------------------
+  # Info
+  # ------------------------
   info-header: "&eHeld item info:"
   info-material: "&7- Material: &f{material}"
   info-id: "&7- ID: &f{id}"
   info-cmd: "&7- CustomModelData: &f{cmd}"
   info-none: "&eThis item has no id or custom model data. &7(Material: &f{material}&7)"
-  update-title: "<bold><green>zMItemsBuilder | Update</green></bold>"
-  update-subtitle: "&7Current: &f{current_version} &8| &7Latest: &a{latest_version}"
-  update-available: "&eA new version is available: &f{latest_version}"
-  update-link: "&7Open the version page: &b<click:open_url:'{version_url}'><u>{version_url}</u></click>"
+
+  # ------------------------
+  # Rename
+  # ------------------------
+  usage-rename: "&eUsage: /rename <new_name> | /zmitems rename <new_name>"
+  rename-success: "&aName changed to: &f{text}"
+  rename-removed: "&aCustom name removed."
+  rename-suggested: "&eCurrent suggestion: &f{text}"
+
+  # ------------------------
+  # Enchant
+  # ------------------------
+  usage-enchant: "&eUsage: /zmitems enchant <enchantment> <amount>"
+  enchant-invalid-name: "&cInvalid enchantment: &f{enchant}"
+  enchant-invalid-amount: "&cInvalid amount: &f{amount}&c. Use 0 to remove the enchantment."
+  enchant-update-failed: "&cCould not apply enchantment &f{enchant}&c."
+  enchant-updated: "&aEnchant &f{enchant} &aset to level &f{level}&a."
+  enchant-removed: "&aEnchant &f{enchant} &aremoved."
+
+  # ------------------------
+  # Lore
+  # ------------------------
+  usage-lore: "&eUsage: /zmitems lore <add|remove|set|reset|copy>"
+  usage-lore-add: "&eUsage: /zmitems lore add <text...>"
+  usage-lore-remove: "&eUsage: /zmitems lore remove <line>"
+  usage-lore-set: "&eUsage: /zmitems lore set <line> <text...>"
+  usage-lore-copy: "&eUsage: /zmitems lore copy <name> [kit_id]"
+  lore-add-success: "&aLine &f{line} &aadded to lore: &f{text}"
+  lore-remove-success: "&aLine &f{line} &aremoved from lore."
+  lore-set-success: "&aLine &f{line} &aset to: &f{text}"
+  lore-reset-success: "&aLore cleared successfully."
+  lore-invalid-line: "&cInvalid line number: &f{line}&c. Must be a positive integer."
+  lore-line-out-of-range: "&cLine &f{line} &cis out of range. The lore has &f{size} &cline(s)."
+  lore-copy-created: "&aItem key &f{key} &acreated in config.yml with &f{lines} &alore line(s). Use /zmitems reload to apply. &7Tip: you can use {primary_color}, {secondary_color} and {gradient:Text} placeholders in name/lore."
+  lore-copy-updated: "&aLore of &f{key} &aupdated in config.yml with &f{lines} &aline(s). Use /zmitems reload to apply."
+  lore-copy-exists: "&cThe item &f{key} &calready exists in configuration. It was not modified."
+  lore-copy-failed: "&cFailed to save config.yml for key: &f{key}&c. Check console for details."
+  lore-copy-kit: "&aItem &f{key} &aadded to kit &f{kit}&a."
+
+  # ------------------------
+  # Item (saved items)
+  # ------------------------
+  usage-item: "&eUsage: /zmitems item <save|show|give|remove|update>"
+  usage-item-save: "&eUsage: /zmitems item save <saved_item_name>"
+  usage-item-give: "&eUsage: /zmitems item give <player> <saved_item> <amount>"
+  usage-item-remove: "&eUsage: /zmitems item remove <saved_item_name>"
+  usage-item-update: "&eUsage: /zmitems item update <saved_item_name>"
+  item-invalid-name: "&cInvalid name: &f{name}&c. Use only letters, numbers, _ or - (max 48)."
+  item-save-failed: "&cCould not save item &f{name}&c. Check console."
+  item-saved: "&aItem saved as &f{name}&a."
+  item-updated: "&aItem &f{name} &aupdated."
+  item-removed: "&aSaved item &f{name} &aremoved."
+  item-show-empty: "&eThere are no saved items yet."
+  item-not-found: "&cNo saved item named &f{name}&c."
+  item-player-not-found: "&cPlayer not found: &f{player}"
+  item-invalid-amount: "&cInvalid amount: &f{amount}&c. Must be a positive integer."
+  item-give-success: "&aGave &f{amount}x {name} &ato &f{player}&a. Dropped on ground: &f{dropped}&a."
+  item-received: "&aYou received &f{amount}x {name}&a."
+  item-gui-give: "&aYou received saved item &f{name}&a."
+
+  # ------------------------
+  # Migrate
+  # ------------------------
+  migrate-open: "&eOpen the inventory and place the items you want to migrate. Then use accept or cancel."
+  migrate-accepted: "&aMigration complete. Items checked: &f{total}&a, migrated: &f{migrated}&a."
+  migrate-cancelled: "&eMigration cancelled. All items were returned."
+
+  # ------------------------
+  # Blocked actions
+  # ------------------------
   blocked-place: "&cThis item cannot be placed."
   blocked-craft: "&cThis item cannot be used for crafting."
   blocked-drop: "&cThis item cannot be dropped."
@@ -54,75 +142,19 @@ messages:
   blocked-enchant: "&cThis item cannot be enchanted."
   blocked-brewing: "&cThis item cannot be used in a brewing stand."
   blocked-furnace: "&cThis item cannot be used in furnaces."
-  usage-lore: "&eUsage: /zmitems lore <add|remove|set|reset|copy>"
-  usage-lore-add: "&eUsage: /zmitems lore add <text...>"
-  usage-lore-remove: "&eUsage: /zmitems lore remove <line>"
-  usage-lore-set: "&eUsage: /zmitems lore set <line> <text...>"
-  lore-add-success: "&aLine &f{line} &aadded to lore: &f{text}"
-  lore-remove-success: "&aLine &f{line} &aremoved from lore."
-  lore-set-success: "&aLine &f{line} &aset to: &f{text}"
-  lore-reset-success: "&aLore cleared successfully."
-  lore-invalid-line: "&cInvalid line number: &f{line}&c. Must be a positive integer."
-  lore-line-out-of-range: "&cLine &f{line} &cis out of range. The lore has &f{size} &cline(s)."
-  usage-lore-copy: "&eUsage: /zmitems lore copy <name> [kit_id]"
-  usage-enchant: "&eUsage: /zmitems enchant <enchantment> <amount>"
-  usage-rename: "&eUsage: /rename <new_name> | /zmitems rename <new_name>"
-  enchant-invalid-name: "&cInvalid enchantment: &f{enchant}"
-  enchant-invalid-amount: "&cInvalid amount: &f{amount}&c. Use 0 to remove the enchantment."
-  enchant-update-failed: "&cCould not apply enchantment &f{enchant}&c."
-  enchant-updated: "&aEnchant &f{enchant} &aset to level &f{level}&a."
-  enchant-removed: "&aEnchant &f{enchant} &aremoved."
-  rename-success: "&aName changed to: &f{text}"
-  rename-removed: "&aCustom name removed."
-  rename-suggested: "&eCurrent suggestion: &f{text}"
-  migrate-open: "&eOpen the inventory and place the items you want to migrate. Then use accept or cancel."
-  migrate-title: "Migrate Items"
 
-  migrate-accept-name: "&#55FF55&l✔ &fMigrate Items"
-  migrate-accept-lore:
-    - ""
-    - " &#55FF55&l| &fUpdate old items"
-    - " &#55FF55&l| &fand keep their data."
-    - ""
-    - "&#55FF55■ Click to migrate."
-
-  migrate-cancel-name: "&#F13713&l✕ &fCancel"
-  migrate-cancel-lore:
-    - ""
-    - " &#F13713&l| &fClose the menu"
-    - " &#C14C36&l| &fand return items."
-    - ""
-    - "&#F13713■ Click to cancel."
-  migrate-accepted: "&aMigration complete. Items checked: &f{total}&a, migrated: &f{migrated}&a."
-  migrate-cancelled: "&eMigration cancelled. All items were returned."
-  lore-copy-created: "&aItem key &f{key} &acreated in config.yml with &f{lines} &alore line(s). Use /zmitems reload to apply. &7Tip: you can use {primary_color}, {secondary_color} and {gradient:Text} placeholders in name/lore."
-  lore-copy-updated: "&aLore of &f{key} &aupdated in config.yml with &f{lines} &aline(s). Use /zmitems reload to apply."
-  lore-copy-exists: "&cThe item &f{key} &calready exists in configuration. It was not modified."
-  lore-copy-failed: "&cFailed to save config.yml for key: &f{key}&c. Check console for details."
-  lore-copy-kit: "&aItem &f{key} &aadded to kit &f{kit}&a."
-  usage-item: "&eUsage: /zmitems item <save|show|give|remove|update>"
-  usage-item-save: "&eUsage: /zmitems item save <saved_item_name>"
-  usage-item-give: "&eUsage: /zmitems item give <player> <saved_item> <amount>"
-  usage-item-remove: "&eUsage: /zmitems item remove <saved_item_name>"
-  usage-item-update: "&eUsage: /zmitems item update <saved_item_name>"
-  item-invalid-name: "&cInvalid name: &f{name}&c. Use only letters, numbers, _ or - (max 48)."
-  item-save-failed: "&cCould not save item &f{name}&c. Check console."
-  item-saved: "&aItem saved as &f{name}&a."
-  item-updated: "&aItem &f{name} &aupdated."
-  item-show-empty: "&eThere are no saved items yet."
-  item-player-not-found: "&cPlayer not found: &f{player}"
-  item-not-found: "&cNo saved item named &f{name}&c."
-  item-invalid-amount: "&cInvalid amount: &f{amount}&c. Must be a positive integer."
-  item-give-success: "&aGave &f{amount}x {name} &ato &f{player}&a. Dropped on ground: &f{dropped}&a."
-  item-received: "&aYou received &f{amount}x {name}&a."
-  item-removed: "&aSaved item &f{name} &aremoved."
-  item-gui-give: "&aYou received saved item &f{name}&a."
+  # ------------------------
+  # GUIS
+  # ------------------------
+  gui-saved-items-title: "Saved Items ({page}/{pages})"
   item-gui-item-name: "&#F13713&l■ &fSaved item"
   item-gui-item-lore:
     - ""
     - " &#F13713&l| &fKey: &#C14C36{name}"
     - ""
     - "&#F13713■ Click to receive it."
+  item-gui-key: "&eKey: &f{name}"
+  item-gui-click-get: "&aLeft click to get this item"
   gui-prev-page-name: "&#1CC6FC&l← &fPrevious page"
   gui-prev-page-lore:
     - ""
@@ -135,14 +167,8 @@ messages:
     - " &#C14C36&l| &fGo to the next page."
     - ""
     - "&#C14C36■ Click to continue."
-  item-gui-key: "&eKey: &f{name}"
-  item-gui-click-get: "&aLeft click to get this item"
-  gui-saved-items-title: "Saved Items ({page}/{pages})"
   gui-prev-page: "&#1CC6FC&l← &fPrevious page"
   gui-next-page: "&fNext page &#C14C36&l→"
-  # ------------------------
-  # GUI
-  # ------------------------
   button-close-name: "&#F13713&l✕ Close menu"
   button-close-lore:
     - ""
@@ -150,14 +176,34 @@ messages:
     - " &#C14C36&l| &fReturn to the game."
     - ""
     - "&#F13713■ Click to close!"
+
+  migrate-title: "Migrate Items"
+  migrate-accept-name: "&#55FF55&l✔ &fMigrate Items"
+  migrate-accept-lore:
+    - ""
+    - " &#55FF55&l| &fUpdate old items"
+    - " &#55FF55&l| &fand keep their data."
+    - ""
+    - "&#55FF55■ Click to migrate."
+  migrate-cancel-name: "&#F13713&l✕ &fCancel"
+  migrate-cancel-lore:
+    - ""
+    - " &#F13713&l| &fClose the menu"
+    - " &#C14C36&l| &fand return items."
+    - ""
+    - "&#F13713■ Click to cancel."
+
   # ------------------------
-  # Update checker (override style)
+  # Update checker
   # ------------------------
   update-title: "<bold><gradient:#F13713:#C14C36:#F13713>zMItemsBuilder | Update</gradient></bold>"
   update-subtitle: " &#F13713• &fInstalled: &#C14C36{current_version} &8| &#F13713Latest: &#C14C36{latest_version}"
   update-available: " &#F13713■ &fA new version is available: &#C14C36{latest_version}"
   update-links: " &#F13713■ &fDownload: <click:open_url:'{modrinth_url}'><u><#F13713>Modrinth</#F13713></u></click>&f, <click:open_url:'{spigot_url}'><u><#C14C36>SpigotMC</#C14C36></u></click>"
 
+# ------------------------
+# Enchantment names
+# ------------------------
 enchantments:
   protection: "Protection"
   fire_protection: "Fire Protection"
@@ -202,6 +248,9 @@ enchantments:
   wind_burst: "Wind Burst"
   vanishing_curse: "Curse of Vanishing"
 
+# ------------------------
+# Item type names
+# ------------------------
 item-types:
   helmet: "Helmet"
   chestplate: "Chestplate"

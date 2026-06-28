@@ -8,6 +8,7 @@ import dev.zm.itemsbuilder.builder.ItemBundleBuilder;
 import dev.zm.itemsbuilder.builder.ItemRegistry;
 import dev.zm.itemsbuilder.listener.ItemBehaviorListener;
 import dev.zm.itemsbuilder.listener.UpdateNotificationListener;
+import dev.zm.itemsbuilder.migration.MigrationManager;
 import dev.zm.itemsbuilder.util.SavedItemStore;
 import dev.zm.itemsbuilder.util.VersionChecker;
 import java.io.File;
@@ -40,7 +41,6 @@ public final class zMItemsBuilder extends JavaPlugin {
     @Override
     public void onEnable() {
         long start = System.currentTimeMillis();
-
         log("&7&m----------------------------------------");
         log("&b&lzMItemsBuilder &7» &fStarting plugin...");
         log("&7&m----------------------------------------");
@@ -51,6 +51,9 @@ public final class zMItemsBuilder extends JavaPlugin {
         migrateManagedFilesIfNeeded();
 
         reloadPluginState();
+
+        MigrationManager migrationManager = new MigrationManager(this, languageManager);
+        boolean anyMigrated = migrationManager.performMigrations();
 
         PluginCommand command = Objects.requireNonNull(getCommand("zmitemsbuilder"),
                 "Command zmitemsbuilder not found in plugin.yml");
@@ -140,7 +143,8 @@ public final class zMItemsBuilder extends JavaPlugin {
                     saveResource(langPath, true);
                     log("&eMigrated " + langPath + " to version " + CURRENT_LANG_VERSION + ".");
                 } else {
-                    getLogger().warning("Skipped " + langPath + " migration because backup could not be created safely.");
+                    getLogger()
+                            .warning("Skipped " + langPath + " migration because backup could not be created safely.");
                 }
             }
         }

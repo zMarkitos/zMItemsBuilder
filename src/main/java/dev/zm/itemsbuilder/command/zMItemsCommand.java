@@ -89,6 +89,7 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
 
         String subcommand = args[0].toLowerCase(Locale.ROOT);
         return switch (subcommand) {
+            case "help" -> handleHelp(sender);
             case "create" -> handleCreate(sender, args);
             case "reload" -> handleReload(sender);
             case "material" -> handleMaterial(sender, args);
@@ -1093,7 +1094,10 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
         }
 
         if (args.length == 1) {
-            return filter(List.of("create", "reload", "material", "info", "lore", "enchant", "rename", "migrate", "item"), args[0]);
+            return filter(
+                    List.of("help", "create", "reload", "material", "info", "lore", "enchant", "rename", "migrate",
+                            "item"),
+                    args[0]);
         }
         if (args.length == 2 && "create".equalsIgnoreCase(args[0])) {
             return filter(plugin.itemRegistry().getBundleIds(), args[1]);
@@ -1177,6 +1181,14 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
             }
         }
         return Collections.emptyList();
+    }
+
+    private boolean handleHelp(CommandSender sender) {
+        List<Component> lines = plugin.language().rawMessageList("messages.help-lines", Map.of());
+        for (Component line : lines) {
+            sender.sendMessage(line);
+        }
+        return true;
     }
 
     private List<String> filter(Collection<String> source, String input) {
@@ -1371,7 +1383,8 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
     }
 
     private String legacyText(Component component) {
-        return net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection().serialize(component);
+        return net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection()
+                .serialize(component);
     }
 
     private Component nonItalic(Component component) {

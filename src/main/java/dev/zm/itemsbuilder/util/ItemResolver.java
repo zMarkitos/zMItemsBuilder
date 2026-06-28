@@ -23,15 +23,53 @@ public final class ItemResolver {
         if (key == null || key.isBlank()) {
             return Optional.empty();
         }
-        NamespacedKey namespacedKey = NamespacedKey.minecraft(key.toLowerCase(Locale.ROOT));
-        try {
-            Enchantment ench = Registry.ENCHANTMENT.get(namespacedKey);
-            if (ench != null) {
-                return Optional.of(ench);
+
+        String normalized = key.trim().toLowerCase(Locale.ROOT);
+
+        if (normalized.contains(":")) {
+            String[] parts = normalized.split(":", 2);
+            NamespacedKey namespacedKey = new NamespacedKey(parts[0], parts[1]);
+            Enchantment direct = registryGet(namespacedKey);
+            if (direct != null) {
+                return Optional.of(direct);
             }
-        } catch (Exception | NoSuchFieldError e) {
-            // Ignored, dropping down to fallback
+            return Optional.ofNullable(Enchantment.getByKey(namespacedKey));
         }
-        return Optional.ofNullable(Enchantment.getByKey(namespacedKey));
+
+        NamespacedKey minecraftKey = NamespacedKey.minecraft(normalized);
+        Enchantment vanilla = registryGet(minecraftKey);
+        if (vanilla != null) {
+            return Optional.of(vanilla);
+        }
+
+        try {
+            for (Enchantment enchantment : Registry.ENCHANTMENT) {
+                if (enchantment.getKey().getKey().equals(normalized)) {
+                    return Optional.of(enchantment);
+                }
+            }
+        } catch (Exception | NoSuchFieldError ignored) {
+        }
+
+        Enchantment legacy = Enchantment.getByKey(minecraftKey);
+        if (legacy != null) {
+            return Optional.of(legacy);
+        }
+
+        for (Enchantment enchantment : Enchantment.values()) {
+            if (enchantment.getKey().getKey().equalsIgnoreCase(normalized)) {
+                return Optional.of(enchantment);
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    private static Enchantment registryGet(NamespacedKey key) {
+        try {
+            return Registry.ENCHANTMENT.get(key);
+        } catch (Exception | NoSuchFieldError e) {
+            return null;
+        }
     }
 }
