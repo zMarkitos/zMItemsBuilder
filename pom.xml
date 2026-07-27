@@ -6,7 +6,7 @@
 
     <groupId>dev.zm</groupId>
     <artifactId>zMItemsBuilder</artifactId>
-    <version>1.6.1</version>
+    <version>1.6.2</version>
     <packaging>jar</packaging>
 
     <name>zMItemsBuilder</name>
@@ -26,6 +26,7 @@
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
+
                 </configuration>
             </plugin>
             <plugin>
@@ -38,6 +39,16 @@
                         <goals>
                             <goal>shade</goal>
                         </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.bstats</pattern>
+                                    <shadedPattern>dev.zm.itemsbuilder.metrics</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
@@ -58,6 +69,11 @@
             <id>papermc-repo</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
+
+        <repository>
+            <id>CodeMC</id>
+            <url>https://repo.codemc.org/repository/maven-public</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -66,6 +82,12 @@
             <artifactId>paper-api</artifactId>
             <version>1.20.1-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.bstats</groupId>
+            <artifactId>bstats-bukkit</artifactId>
+            <version>3.2.1</version>
         </dependency>
     </dependencies>
 </project>

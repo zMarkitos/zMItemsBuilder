@@ -71,6 +71,13 @@ public final class zMItemsBuilder extends JavaPlugin {
         pluginManager.registerEvents(new UpdateNotificationListener(this), this);
         pluginManager.registerEvents(executor, this);
 
+        try {
+            int pluginId = 32937;
+            org.bstats.bukkit.Metrics metrics = new org.bstats.bukkit.Metrics(this, pluginId);
+        } catch (Exception e) {
+            getLogger().warning("Could not enable bStats metrics: " + e.getMessage());
+        }
+
         long time = System.currentTimeMillis() - start;
 
         log("&7");
