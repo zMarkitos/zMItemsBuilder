@@ -4,6 +4,7 @@ main: dev.zm.itemsbuilder.zMItemsBuilder
 api-version: "1.20"
 author: zMarkitos_
 description: Create and automate custom items, sets and scalable progression with ease.
+softdepend: [PlaceholderAPI]
 
 commands:
   zmitemsbuilder:
@@ -49,4 +50,19 @@ permissions:
     default: op
   zmitemsbuilder.item:
     description: Allows managing saved items (save/show/give/remove).
+    default: op
+  zmitemsbuilder.glow:
+    description: Allows toggling the enchantment glow on the held item.
+    default: op
+  zmitemsbuilder.hide:
+    description: Allows toggling item flags (hide attributes, enchants, etc.).
+    default: op
+  zmitemsbuilder.flag:
+    description: Allows toggling behavior flags (NO_PLACE, NO_CRAFT, etc.).
+    default: op
+  zmitemsbuilder.unbreakable:
+    description: Allows toggling the unbreakable state of the held item.
+    default: op
+  zmitemsbuilder.armortrim:
+    description: Allows applying or removing armor trims on the held item.
     default: op

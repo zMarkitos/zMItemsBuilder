@@ -5,7 +5,7 @@
 # - Soporta colores HEX: &#RRGGBB
 # - Soporta formato MiniMessage: <gradient>, <bold>, <click>, <hover>, etc.
 
-version: 4
+version: 5
 
 messages:
   prefix: '<b><gradient:#F13713:#C14C36:#F13713>zMItemsBuilder</gradient></b> &8| &r'
@@ -34,6 +34,11 @@ messages:
     - " &f/zmitems info &8— &7Muestra el ID y model data del item en mano."
     - " &f/zmitems item &7<save|show|give|remove|update> &8— &7Administra items guardados."
     - " &f/zmitems migrate &8— &7Actualiza items viejos al nuevo formato de clave."
+    - " &f/zmitems glow &8— &7Aplica o quita el efecto de encantamiento visual."
+    - " &f/zmitems hide &7<flag> &8— &7Oculta o muestra un atributo específico."
+    - " &f/zmitems flag &7<flag> &8— &7Alterna un flag de comportamiento (ej: NO_PLACE)."
+    - " &f/zmitems unbreakable &8— &7Alterna el estado de irrompible."
+    - " &f/zmitems armor_trim &7<material> <patrón> &8— &7Aplica o quita un armor trim."
     - " &f/zmitems reload &8— &7Recarga la configuración y los archivos de idioma."
     - ""
 
@@ -119,6 +124,32 @@ messages:
   item-give-success: "&aEntregado &f{amount}x {name} &aa &f{player}&a. Caídos al suelo: &f{dropped}&a."
   item-received: "&aHas recibido &f{amount}x {name}&a."
   item-gui-give: "&aHas obtenido el item guardado &f{name}&a."
+
+  # ------------------------
+  # Glow / Hide / Flag / Unbreakable / Armor Trim
+  # ------------------------
+  glow-added: "&aEfecto de encantamiento visual aplicado."
+  glow-removed: "&aEfecto de encantamiento visual quitado."
+  
+  usage-hide: "&eUso: /zmitems hide <flag>"
+  invalid-flag: "&cFlag inválido: &f{flag}"
+  hide-added: "&aFlag &f{flag} &aaplicado."
+  hide-removed: "&aFlag &f{flag} &aquitado."
+
+  usage-flag: "&eUso: /zmitems flag <behavior_flag>"
+  invalid-behavior-flag: "&cBehavior flag inválido: &f{flag}"
+  flag-added: "&aBehavior flag &f{flag} &aaplicado."
+  flag-removed: "&aBehavior flag &f{flag} &aquitado."
+
+  unbreakable-added: "&aEl item ahora es irrompible."
+  unbreakable-removed: "&aEl item ya no es irrompible."
+
+  usage-armor-trim: "&eUso: /zmitems armor_trim <material> <patrón> | remove"
+  invalid-trim-material: "&cMaterial de trim inválido: &f{material}"
+  invalid-trim-pattern: "&cPatrón de trim inválido: &f{pattern}"
+  armor-trim-added: "&aArmor trim aplicado exitosamente."
+  armor-trim-removed: "&aArmor trim quitado."
+  not-armor: "&cEl item en tu mano no es una armadura."
 
   # ------------------------
   # Migrate

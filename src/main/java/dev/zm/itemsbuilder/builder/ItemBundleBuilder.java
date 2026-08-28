@@ -6,6 +6,7 @@ import dev.zm.itemsbuilder.builder.model.ItemDefinition;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.inventory.ItemStack;
 
 public final class ItemBundleBuilder {
@@ -18,13 +19,19 @@ public final class ItemBundleBuilder {
         this.itemFactory = itemFactory;
     }
 
+    /**
+     * Builds all items in the kit for the given player.
+     *
+     * @param player the player who triggered the build (used for PlaceholderAPI). May be null.
+     */
     public List<ItemStack> build(
             ItemBundleDefinition kitDefinition,
             String prefixRaw,
             String prefixMiniMessage,
             String primaryHex,
             String secondaryHex,
-            List<String> prefixGradientColors) {
+            List<String> prefixGradientColors,
+            OfflinePlayer player) {
         String rarity = plugin.getConfig().getString("rarity." + kitDefinition.rarity(), kitDefinition.rarity());
         ItemBuildContext context = new ItemBuildContext(
                 kitDefinition.id(),
@@ -35,7 +42,8 @@ public final class ItemBundleBuilder {
                 prefixMiniMessage,
                 primaryHex,
                 secondaryHex,
-                prefixGradientColors);
+                prefixGradientColors,
+                player);
 
         List<ItemStack> items = new ArrayList<>();
         for (String itemId : kitDefinition.itemIds()) {
@@ -47,5 +55,18 @@ public final class ItemBundleBuilder {
             items.addAll(itemFactory.create(itemDefinition.get(), context));
         }
         return items;
+    }
+
+    /**
+     * Convenience overload without a player – PAPI placeholders are not applied.
+     */
+    public List<ItemStack> build(
+            ItemBundleDefinition kitDefinition,
+            String prefixRaw,
+            String prefixMiniMessage,
+            String primaryHex,
+            String secondaryHex,
+            List<String> prefixGradientColors) {
+        return build(kitDefinition, prefixRaw, prefixMiniMessage, primaryHex, secondaryHex, prefixGradientColors, null);
     }
 }

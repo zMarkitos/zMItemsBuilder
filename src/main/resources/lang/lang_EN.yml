@@ -5,7 +5,7 @@
 # - Supports HEX colors: &#RRGGBB
 # - Supports MiniMessage formatting: <gradient>, <bold>, <click>, <hover>, etc.
 
-version: 4
+version: 5
 
 messages:
   prefix: '<b><gradient:#F13713:#C14C36:#F13713>zMItemsBuilder</gradient></b> &8| &r'
@@ -34,6 +34,11 @@ messages:
     - " &f/zmitems info &8— &7Show ID and model data of the item in hand."
     - " &f/zmitems item &7<save|show|give|remove|update> &8— &7Manage saved item snapshots."
     - " &f/zmitems migrate &8— &7Update old items to the new source key format."
+    - " &f/zmitems glow &8— &7Toggle visual enchantment glow."
+    - " &f/zmitems hide &7<flag> &8— &7Toggle a specific item flag."
+    - " &f/zmitems flag &7<flag> &8— &7Toggle a custom behavior flag."
+    - " &f/zmitems unbreakable &8— &7Toggle the unbreakable state."
+    - " &f/zmitems armor_trim &7<material> <pattern> &8— &7Apply or remove an armor trim."
     - " &f/zmitems reload &8— &7Reload configuration and language files."
     - ""
 
@@ -119,6 +124,32 @@ messages:
   item-give-success: "&aGave &f{amount}x {name} &ato &f{player}&a. Dropped on ground: &f{dropped}&a."
   item-received: "&aYou received &f{amount}x {name}&a."
   item-gui-give: "&aYou received saved item &f{name}&a."
+
+  # ------------------------
+  # Glow / Hide / Flag / Unbreakable / Armor Trim
+  # ------------------------
+  glow-added: "&aEnchantment glow added."
+  glow-removed: "&aEnchantment glow removed."
+  
+  usage-hide: "&eUsage: /zmitems hide <flag>"
+  invalid-flag: "&cInvalid flag: &f{flag}"
+  hide-added: "&aFlag &f{flag} &aadded."
+  hide-removed: "&aFlag &f{flag} &aremoved."
+
+  usage-flag: "&eUsage: /zmitems flag <behavior_flag>"
+  invalid-behavior-flag: "&cInvalid behavior flag: &f{flag}"
+  flag-added: "&aBehavior flag &f{flag} &aadded."
+  flag-removed: "&aBehavior flag &f{flag} &aremoved."
+
+  unbreakable-added: "&aItem is now unbreakable."
+  unbreakable-removed: "&aItem is no longer unbreakable."
+
+  usage-armor-trim: "&eUsage: /zmitems armor_trim <material> <pattern> | remove"
+  invalid-trim-material: "&cInvalid trim material: &f{material}"
+  invalid-trim-pattern: "&cInvalid trim pattern: &f{pattern}"
+  armor-trim-added: "&aArmor trim applied successfully."
+  armor-trim-removed: "&aArmor trim removed."
+  not-armor: "&cThe item in your hand is not armor."
 
   # ------------------------
   # Migrate

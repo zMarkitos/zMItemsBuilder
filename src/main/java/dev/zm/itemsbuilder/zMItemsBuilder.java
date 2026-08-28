@@ -6,6 +6,7 @@ import dev.zm.itemsbuilder.config.PluginSettings;
 import dev.zm.itemsbuilder.builder.ItemFactory;
 import dev.zm.itemsbuilder.builder.ItemBundleBuilder;
 import dev.zm.itemsbuilder.builder.ItemRegistry;
+import dev.zm.itemsbuilder.hook.PapiHook;
 import dev.zm.itemsbuilder.listener.ItemBehaviorListener;
 import dev.zm.itemsbuilder.listener.UpdateNotificationListener;
 import dev.zm.itemsbuilder.migration.MigrationManager;
@@ -13,12 +14,17 @@ import dev.zm.itemsbuilder.util.SavedItemStore;
 import dev.zm.itemsbuilder.util.VersionChecker;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.PluginCommand;
@@ -28,7 +34,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class zMItemsBuilder extends JavaPlugin {
     private static final int CURRENT_CONFIG_VERSION = 2;
-    private static final int CURRENT_LANG_VERSION = 3;
+    private static final int CURRENT_LANG_VERSION = 5;
     private static final DateTimeFormatter BACKUP_TS = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 
     private PluginSettings settings;
@@ -37,6 +43,7 @@ public final class zMItemsBuilder extends JavaPlugin {
     private ItemBundleBuilder itemBundleBuilder;
     private VersionChecker versionChecker;
     private SavedItemStore savedItemStore;
+    private PapiHook papiHook;
 
     @Override
     public void onEnable() {
@@ -49,6 +56,8 @@ public final class zMItemsBuilder extends JavaPlugin {
         ensureLanguageFile("lang/lang_ES.yml");
         ensureLanguageFile("lang/lang_EN.yml");
         migrateManagedFilesIfNeeded();
+
+        this.papiHook = new PapiHook(this);
 
         reloadPluginState();
 
@@ -147,14 +156,65 @@ public final class zMItemsBuilder extends JavaPlugin {
             if (langVersion < CURRENT_LANG_VERSION) {
                 langBackupDir = ensureLanguageBackupDirectory(langBackupDir);
                 if (langBackupDir != null && backupFile(langFile, langBackupDir)) {
-                    saveResource(langPath, true);
-                    log("&eMigrated " + langPath + " to version " + CURRENT_LANG_VERSION + ".");
+                    int added = mergeMissingLangKeys(langFile, langPath);
+                    log("&eMigrated " + langPath + " to version " + CURRENT_LANG_VERSION
+                            + (added > 0 ? " (&f" + added + " new keys added&e)." : " (no new keys needed)."));
                 } else {
                     getLogger()
                             .warning("Skipped " + langPath + " migration because backup could not be created safely.");
                 }
             }
         }
+    }
+
+    /**
+     * Merges keys present in the bundled (JAR) default lang file into the
+     * user's existing lang file on disk, skipping keys that already exist.
+     * Then updates the {@code version} field to {@link #CURRENT_LANG_VERSION}.
+     *
+     * @return the number of new keys injected.
+     */
+    private int mergeMissingLangKeys(File userFile, String resourcePath) {
+        // Load the bundled default from the JAR
+        YamlConfiguration defaults;
+        try (InputStream in = getResource(resourcePath)) {
+            if (in == null) {
+                getLogger().warning("Could not find bundled resource: " + resourcePath);
+                return 0;
+            }
+            defaults = YamlConfiguration.loadConfiguration(
+                    new InputStreamReader(in, StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            getLogger().warning("Failed to read bundled resource " + resourcePath + ": " + e.getMessage());
+            return 0;
+        }
+
+        // Load user file (may be outdated but already exists)
+        YamlConfiguration userConfig = YamlConfiguration.loadConfiguration(userFile);
+
+        int added = 0;
+        Set<String> allKeys = defaults.getKeys(true);
+        for (String key : allKeys) {
+            if (userConfig.contains(key)) {
+                continue; // already present – do not overwrite user value
+            }
+            Object value = defaults.get(key);
+            if (value == null) {
+                continue;
+            }
+            userConfig.set(key, value);
+            added++;
+        }
+
+        // Always stamp the new version so we don't re-run this migration
+        userConfig.set("version", CURRENT_LANG_VERSION);
+
+        try {
+            userConfig.save(userFile);
+        } catch (IOException e) {
+            getLogger().warning("Failed to save updated lang file " + userFile.getName() + ": " + e.getMessage());
+        }
+        return added;
     }
 
     private int readVersion(File file, String key, int fallback) {
@@ -245,5 +305,9 @@ public final class zMItemsBuilder extends JavaPlugin {
 
     public SavedItemStore savedItemStore() {
         return savedItemStore;
+    }
+
+    public PapiHook papiHook() {
+        return papiHook;
     }
 }

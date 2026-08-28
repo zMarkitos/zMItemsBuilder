@@ -42,7 +42,7 @@ public final class ItemFlagStore {
     public static Set<ItemBehaviorFlag> read(JavaPlugin plugin, ItemStack item) {
         int mask = readMask(plugin, item);
         if (mask == 0) {
-            return Set.of();
+            return EnumSet.noneOf(ItemBehaviorFlag.class);
         }
         EnumSet<ItemBehaviorFlag> result = EnumSet.noneOf(ItemBehaviorFlag.class);
         for (ItemBehaviorFlag flag : ItemBehaviorFlag.values()) {

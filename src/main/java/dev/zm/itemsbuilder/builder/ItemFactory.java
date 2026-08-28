@@ -40,6 +40,7 @@ import dev.zm.itemsbuilder.builder.model.PotionEffectRule;
 import dev.zm.itemsbuilder.builder.model.PotionEffectSettings;
 import java.util.UUID;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.OfflinePlayer;
 
 public final class ItemFactory {
 
@@ -124,7 +125,9 @@ public final class ItemFactory {
                     "display.name-template",
                     plugin.getConfig().getString("esthetic.name-format", "{item_type}"));
         }
-        String resolvedDisplayName = applyGradients(PlaceholderUtils.replace(displayNameTemplate, placeholders),
+        String resolvedDisplayName = applyGradients(
+                PlaceholderUtils.replace(displayNameTemplate, placeholders,
+                        plugin.papiHook(), context.player()),
                 context.prefixGradientColors());
         meta.displayName(TextUtils.toItemComponent(resolvedDisplayName));
         meta.lore(buildLore(definition, context, placeholders, validEnchantments));
@@ -618,7 +621,9 @@ public final class ItemFactory {
                 lore.addAll(enchantLines);
                 continue;
             }
-            String replaced = PlaceholderUtils.replace(rawLine, placeholders);
+            // Apply internal placeholders first, then PAPI %placeholders%
+            String replaced = PlaceholderUtils.replace(rawLine, placeholders,
+                    plugin.papiHook(), context.player());
             if (containsUnresolvedAttributeOrEffectPlaceholders(replaced)) {
                 continue;
             }

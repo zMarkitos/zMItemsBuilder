@@ -45,8 +45,13 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ArmorMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.trim.ArmorTrim;
+import org.bukkit.inventory.meta.trim.TrimMaterial;
+import org.bukkit.inventory.meta.trim.TrimPattern;
 
 public final class zMItemsCommand implements CommandExecutor, TabCompleter, Listener {
 
@@ -99,6 +104,11 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
             case "rename" -> handleRename(sender, args, 1);
             case "migrate" -> handleMigrate(sender);
             case "item" -> handleItem(sender, args);
+            case "glow" -> handleGlow(sender);
+            case "hide" -> handleHide(sender, args);
+            case "flag" -> handleFlag(sender, args);
+            case "unbreakable" -> handleUnbreakable(sender);
+            case "armor_trim" -> handleArmorTrim(sender, args);
             default -> {
                 sender.sendMessage(plugin.language().message("usage"));
                 yield true;
@@ -855,6 +865,232 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
         return true;
     }
 
+    private boolean handleGlow(CommandSender sender) {
+        if (!sender.hasPermission("zmitemsbuilder.glow")) {
+            sender.sendMessage(plugin.language().message("no-permission"));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.language().message("player-only"));
+            return true;
+        }
+
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        if (inHand == null || inHand.getType().isAir()) {
+            sender.sendMessage(plugin.language().message("no-item-in-hand"));
+            return true;
+        }
+
+        ItemMeta meta = inHand.getItemMeta();
+        if (meta == null)
+            return true;
+
+        boolean isGlowing = meta.hasItemFlag(ItemFlag.HIDE_ENCHANTS) && meta.hasEnchants();
+
+        if (isGlowing) {
+            meta.removeItemFlags(ItemFlag.HIDE_ENCHANTS);
+            meta.getEnchants().keySet().forEach(meta::removeEnchant);
+            inHand.setItemMeta(meta);
+            player.sendMessage(plugin.language().message("glow-removed"));
+        } else {
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+            if (!meta.hasEnchants()) {
+                try {
+                    meta.addEnchant(Enchantment.LUCK, 1, true);
+                } catch (IllegalArgumentException ignored) {
+                    inHand.addUnsafeEnchantment(Enchantment.LUCK, 1);
+                    meta = inHand.getItemMeta();
+                    if (meta != null) {
+                        meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+                    }
+                }
+            }
+            if (meta != null) {
+                inHand.setItemMeta(meta);
+            }
+            player.sendMessage(plugin.language().message("glow-added"));
+        }
+
+        player.updateInventory();
+        return true;
+    }
+
+    private boolean handleHide(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("zmitemsbuilder.hide")) {
+            sender.sendMessage(plugin.language().message("no-permission"));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.language().message("player-only"));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(plugin.language().message("usage-hide"));
+            return true;
+        }
+
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        if (inHand == null || inHand.getType().isAir()) {
+            sender.sendMessage(plugin.language().message("no-item-in-hand"));
+            return true;
+        }
+
+        ItemMeta meta = inHand.getItemMeta();
+        if (meta == null)
+            return true;
+
+        String rawFlag = args[1].toUpperCase(Locale.ROOT);
+        ItemFlag flag;
+        try {
+            flag = ItemFlag.valueOf(rawFlag);
+        } catch (IllegalArgumentException e) {
+            sender.sendMessage(plugin.language().message("invalid-flag", Map.of("flag", args[1])));
+            return true;
+        }
+
+        if (meta.hasItemFlag(flag)) {
+            meta.removeItemFlags(flag);
+            inHand.setItemMeta(meta);
+            player.sendMessage(plugin.language().message("hide-removed", Map.of("flag", flag.name())));
+        } else {
+            meta.addItemFlags(flag);
+            inHand.setItemMeta(meta);
+            player.sendMessage(plugin.language().message("hide-added", Map.of("flag", flag.name())));
+        }
+        return true;
+    }
+
+    private boolean handleFlag(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("zmitemsbuilder.flag")) {
+            sender.sendMessage(plugin.language().message("no-permission"));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.language().message("player-only"));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(plugin.language().message("usage-flag"));
+            return true;
+        }
+
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        if (inHand == null || inHand.getType().isAir()) {
+            sender.sendMessage(plugin.language().message("no-item-in-hand"));
+            return true;
+        }
+
+        ItemBehaviorFlag flag = ItemBehaviorFlag.from(args[1]);
+        if (flag == null) {
+            sender.sendMessage(plugin.language().message("invalid-behavior-flag", Map.of("flag", args[1])));
+            return true;
+        }
+
+        ItemMeta meta = inHand.getItemMeta();
+        if (meta == null)
+            return true;
+
+        Set<ItemBehaviorFlag> flags = ItemFlagStore.read(plugin, inHand);
+        if (flags.contains(flag)) {
+            flags.remove(flag);
+            ItemFlagStore.write(plugin, meta, flags);
+            inHand.setItemMeta(meta);
+            player.sendMessage(plugin.language().message("flag-removed", Map.of("flag", flag.name())));
+        } else {
+            flags.add(flag);
+            ItemFlagStore.write(plugin, meta, flags);
+            inHand.setItemMeta(meta);
+            player.sendMessage(plugin.language().message("flag-added", Map.of("flag", flag.name())));
+        }
+        return true;
+    }
+
+    private boolean handleUnbreakable(CommandSender sender) {
+        if (!sender.hasPermission("zmitemsbuilder.unbreakable")) {
+            sender.sendMessage(plugin.language().message("no-permission"));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.language().message("player-only"));
+            return true;
+        }
+
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        if (inHand == null || inHand.getType().isAir()) {
+            sender.sendMessage(plugin.language().message("no-item-in-hand"));
+            return true;
+        }
+
+        ItemMeta meta = inHand.getItemMeta();
+        if (meta == null)
+            return true;
+
+        if (meta.isUnbreakable()) {
+            meta.setUnbreakable(false);
+            inHand.setItemMeta(meta);
+            player.sendMessage(plugin.language().message("unbreakable-removed"));
+        } else {
+            meta.setUnbreakable(true);
+            inHand.setItemMeta(meta);
+            player.sendMessage(plugin.language().message("unbreakable-added"));
+        }
+        return true;
+    }
+
+    private boolean handleArmorTrim(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("zmitemsbuilder.armortrim")) {
+            sender.sendMessage(plugin.language().message("no-permission"));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(plugin.language().message("player-only"));
+            return true;
+        }
+
+        ItemStack inHand = player.getInventory().getItemInMainHand();
+        if (inHand == null || inHand.getType().isAir()) {
+            sender.sendMessage(plugin.language().message("no-item-in-hand"));
+            return true;
+        }
+
+        if (!(inHand.getItemMeta() instanceof ArmorMeta armorMeta)) {
+            sender.sendMessage(plugin.language().message("not-armor"));
+            return true;
+        }
+
+        if (args.length == 2 && args[1].equalsIgnoreCase("remove")) {
+            armorMeta.setTrim(null);
+            inHand.setItemMeta(armorMeta);
+            player.sendMessage(plugin.language().message("armor-trim-removed"));
+            return true;
+        }
+
+        if (args.length < 3) {
+            sender.sendMessage(plugin.language().message("usage-armor-trim"));
+            return true;
+        }
+
+        String materialKey = args[1].toLowerCase(Locale.ROOT);
+        String patternKey = args[2].toLowerCase(Locale.ROOT);
+
+        TrimMaterial material = Registry.TRIM_MATERIAL.get(org.bukkit.NamespacedKey.minecraft(materialKey));
+        if (material == null) {
+            sender.sendMessage(plugin.language().message("invalid-trim-material", Map.of("material", args[1])));
+            return true;
+        }
+
+        TrimPattern pattern = Registry.TRIM_PATTERN.get(org.bukkit.NamespacedKey.minecraft(patternKey));
+        if (pattern == null) {
+            sender.sendMessage(plugin.language().message("invalid-trim-pattern", Map.of("pattern", args[2])));
+            return true;
+        }
+
+        armorMeta.setTrim(new ArmorTrim(material, pattern));
+        inHand.setItemMeta(armorMeta);
+        player.sendMessage(plugin.language().message("armor-trim-added"));
+        return true;
+    }
+
     private boolean handleMigrate(CommandSender sender) {
         if (!sender.hasPermission("zmitemsbuilder.migrate")) {
             sender.sendMessage(plugin.language().message("no-permission"));
@@ -969,7 +1205,8 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
                 prefixMiniMessage,
                 primaryHex.get(),
                 secondaryHex,
-                gradientColors);
+                gradientColors,
+                player);
         Map<Integer, ItemStack> leftovers = player.getInventory().addItem(builtItems.toArray(new ItemStack[0]));
         leftovers.values().forEach(item -> player.getWorld().dropItemNaturally(player.getLocation(), item));
 
@@ -1096,7 +1333,7 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
         if (args.length == 1) {
             return filter(
                     List.of("help", "create", "reload", "material", "info", "lore", "enchant", "rename", "migrate",
-                            "item"),
+                            "item", "glow", "hide", "flag", "unbreakable", "armor_trim"),
                     args[0]);
         }
         if (args.length == 2 && "create".equalsIgnoreCase(args[0])) {
@@ -1116,6 +1353,23 @@ public final class zMItemsCommand implements CommandExecutor, TabCompleter, List
         }
         if (args.length == 2 && "lore".equalsIgnoreCase(args[0])) {
             return filter(LORE_SUB_ACTIONS, args[1]);
+        }
+        if (args.length == 2 && "hide".equalsIgnoreCase(args[0])) {
+            return filter(Arrays.stream(ItemFlag.values()).map(Enum::name).toList(), args[1]);
+        }
+        if (args.length == 2 && "flag".equalsIgnoreCase(args[0])) {
+            return filter(Arrays.stream(ItemBehaviorFlag.values()).map(Enum::name).toList(), args[1]);
+        }
+        if (args.length == 2 && "armor_trim".equalsIgnoreCase(args[0])) {
+            List<String> list = new ArrayList<>();
+            list.add("remove");
+            Registry.TRIM_MATERIAL.forEach(m -> list.add(m.getKey().getKey()));
+            return filter(list, args[1]);
+        }
+        if (args.length == 3 && "armor_trim".equalsIgnoreCase(args[0]) && !args[1].equalsIgnoreCase("remove")) {
+            List<String> list = new ArrayList<>();
+            Registry.TRIM_PATTERN.forEach(p -> list.add(p.getKey().getKey()));
+            return filter(list, args[2]);
         }
         if (args.length == 2 && "item".equalsIgnoreCase(args[0])) {
             return filter(ITEM_SUB_ACTIONS, args[1]);
