@@ -1,40 +1,46 @@
 package dev.zm.itemsbuilder.listener;
 
 import dev.zm.itemsbuilder.builder.model.ItemBehaviorFlag;
+import dev.zm.itemsbuilder.builder.model.PotionEffectSettings;
+import dev.zm.itemsbuilder.util.ItemDataStore;
+import dev.zm.itemsbuilder.util.ItemEffectsStore;
 import dev.zm.itemsbuilder.util.ItemEnchantLoreManager;
 import dev.zm.itemsbuilder.util.ItemFlagStore;
+import dev.zm.itemsbuilder.util.ItemIdentityStore;
 import dev.zm.itemsbuilder.zMItemsBuilder;
 import java.util.List;
+import java.util.Locale;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.enchantment.EnchantItemEvent;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.inventory.InventoryType.SlotType;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
 import org.bukkit.event.inventory.PrepareGrindstoneEvent;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.event.inventory.PrepareSmithingEvent;
-import org.bukkit.event.enchantment.EnchantItemEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.Material;
 import org.bukkit.inventory.meta.PotionMeta;
-import org.bukkit.event.inventory.InventoryType;
-import org.bukkit.event.inventory.InventoryType.SlotType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
-import org.bukkit.NamespacedKey;
-import org.bukkit.Registry;
-import dev.zm.itemsbuilder.builder.model.PotionEffectSettings;
-import dev.zm.itemsbuilder.util.ItemEffectsStore;
-import dev.zm.itemsbuilder.util.ItemIdentityStore;
 
 public final class ItemBehaviorListener implements Listener {
+
+    /** Re-apply passive slot-bound effects every 4 seconds (80 ticks). */
+    private static final int PASSIVE_EFFECT_INTERVAL_TICKS = 80;
 
     private final zMItemsBuilder plugin;
     private final ItemEnchantLoreManager enchantLoreManager;
@@ -42,6 +48,9 @@ public final class ItemBehaviorListener implements Listener {
     public ItemBehaviorListener(zMItemsBuilder plugin) {
         this.plugin = plugin;
         this.enchantLoreManager = new ItemEnchantLoreManager(plugin, plugin.language());
+        // Schedule passive slot-based effect application
+        plugin.getServer().getScheduler().runTaskTimer(
+                plugin, this::applyPassiveSlotEffects, 40L, PASSIVE_EFFECT_INTERVAL_TICKS);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -63,7 +72,8 @@ public final class ItemBehaviorListener implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onInteract(PlayerInteractEvent event) {
         ItemStack item = event.getItem();
-        if (item != null && ItemFlagStore.hasAny(plugin, item, ItemBehaviorFlag.NO_EQUIP) && isEquippable(item) && isEquipAction(event.getAction())) {
+        if (item != null && ItemFlagStore.hasAny(plugin, item, ItemBehaviorFlag.NO_EQUIP)
+                && isEquippable(item) && isEquipAction(event.getAction())) {
             event.setCancelled(true);
             event.getPlayer().sendMessage(plugin.language().message("blocked-equip"));
             return;
@@ -82,7 +92,8 @@ public final class ItemBehaviorListener implements Listener {
             return;
         }
 
-        // If the item is a real potion with custom effects in meta, Minecraft will apply them already.
+        // If the item is a real potion with custom effects in meta, Minecraft handles
+        // them.
         if (event.getItem() != null && event.getItem().hasItemMeta()
                 && event.getItem().getItemMeta() instanceof PotionMeta potionMeta
                 && potionMeta.hasCustomEffects()) {
@@ -91,11 +102,11 @@ public final class ItemBehaviorListener implements Listener {
 
         List<PotionEffectSettings> storedEffects = ItemEffectsStore.read(plugin, event.getItem());
         if (!storedEffects.isEmpty()) {
-            applyEffects(event, storedEffects);
+            applyEffectsOnConsume(event, storedEffects);
             return;
         }
 
-        // Fallback for very old items created before effects were stored in PDC.
+        // Fallback for items created before effects were stored in PDC.
         String itemId = ItemIdentityStore.read(plugin, event.getItem());
         if (itemId != null) {
             plugin.itemRegistry().getItem(itemId).ifPresent(definition -> {
@@ -103,33 +114,79 @@ public final class ItemBehaviorListener implements Listener {
                     List<PotionEffectSettings> resolved = definition.customEffects().stream()
                             .map(rule -> rule.resolve(1))
                             .toList();
-                    applyEffects(event, resolved);
+                    applyEffectsOnConsume(event, resolved);
                 }
             });
         }
     }
 
-    private void applyEffects(PlayerItemConsumeEvent event, List<PotionEffectSettings> effects) {
+    private void applyEffectsOnConsume(PlayerItemConsumeEvent event, List<PotionEffectSettings> effects) {
         for (PotionEffectSettings eff : effects) {
-            try {
-                NamespacedKey key = NamespacedKey.minecraft(eff.type().toLowerCase(java.util.Locale.ROOT));
-                PotionEffectType type = null;
-                try {
-                    type = Registry.POTION_EFFECT_TYPE.get(key);
-                } catch (Exception | NoSuchFieldError e) {}
-                if (type == null) {
-                    type = PotionEffectType.getByKey(key);
-                }
-                if (type == null) {
-                    type = PotionEffectType.getByName(eff.type().toUpperCase(java.util.Locale.ROOT));
-                }
-                if (type != null) {
-                    event.getPlayer().addPotionEffect(new PotionEffect(type, eff.durationTicks(), eff.amplifier()));
-                }
-            } catch (Exception ignored) {
-            }
+            applyPotionEffect(event.getPlayer(), eff.type(), eff.durationTicks(), eff.amplifier());
         }
     }
+
+    // ── Passive slot-bound effects (data.yml) ────────────────────────────────
+
+    /**
+     * Runs on a repeating timer. For each online player, checks every relevant
+     * equipment slot and applies effects defined in data.yml that are bound to it.
+     */
+    private void applyPassiveSlotEffects() {
+        ItemDataStore store = plugin.itemDataStore();
+        if (store == null)
+            return;
+
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            checkSlotEffects(player, player.getInventory().getItemInMainHand(), "MAIN_HAND", store);
+            checkSlotEffects(player, player.getInventory().getItemInOffHand(), "OFF_HAND", store);
+            checkSlotEffects(player, player.getInventory().getHelmet(), "HELMET", store);
+            checkSlotEffects(player, player.getInventory().getChestplate(), "CHESTPLATE", store);
+            checkSlotEffects(player, player.getInventory().getLeggings(), "LEGGINGS", store);
+            checkSlotEffects(player, player.getInventory().getBoots(), "BOOTS", store);
+        }
+    }
+
+    private void checkSlotEffects(Player player, ItemStack item, String slotName, ItemDataStore store) {
+        if (item == null || item.getType().isAir() || !item.hasItemMeta())
+            return;
+        String itemId = ItemIdentityStore.read(plugin, item);
+        if (itemId == null)
+            itemId = ItemIdentityStore.readSourceKey(plugin, item);
+        if (itemId == null)
+            return;
+
+        for (ItemDataStore.ItemEffectData eff : store.getEffects(itemId)) {
+            if (!eff.isSlotBound())
+                continue;
+            if (!eff.slot().equalsIgnoreCase(slotName))
+                continue;
+            // Duration slightly longer than interval to keep the effect active continuously
+            int duration = eff.duration() > 0 ? eff.duration() : PASSIVE_EFFECT_INTERVAL_TICKS + 20;
+            applyPotionEffect(player, eff.type(), duration, eff.amplifier());
+        }
+    }
+
+    private void applyPotionEffect(Player player, String typeName, int durationTicks, int amplifier) {
+        try {
+            NamespacedKey key = NamespacedKey.minecraft(typeName.toLowerCase(Locale.ROOT));
+            PotionEffectType type = null;
+            try {
+                type = Registry.POTION_EFFECT_TYPE.get(key);
+            } catch (Exception | NoSuchFieldError ignored) {
+            }
+            if (type == null)
+                type = PotionEffectType.getByKey(key);
+            if (type == null)
+                type = PotionEffectType.getByName(typeName.toUpperCase(Locale.ROOT));
+            if (type != null) {
+                player.addPotionEffect(new PotionEffect(type, durationTicks, amplifier, true, false));
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    // ── Workstation restrictions ─────────────────────────────────────────────
 
     @EventHandler(ignoreCancelled = true)
     public void onPrepareCraft(PrepareItemCraftEvent event) {
@@ -146,13 +203,11 @@ public final class ItemBehaviorListener implements Listener {
         }
 
         ItemStack currentResult = event.getResult();
-        if (currentResult == null || currentResult.getType().isAir()) {
+        if (currentResult == null || currentResult.getType().isAir())
             return;
-        }
         ItemStack result = currentResult.clone();
-        if (ItemIdentityStore.readSourceKey(plugin, result) == null) {
+        if (ItemIdentityStore.readSourceKey(plugin, result) == null)
             return;
-        }
         if (enchantLoreManager.syncEnchantLore(result)) {
             event.setResult(result);
         }
@@ -191,7 +246,8 @@ public final class ItemBehaviorListener implements Listener {
                 sendInventoryMessage(event, restrictedFlag);
                 return;
             }
-            if (event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY && ItemFlagStore.hasAny(plugin, event.getCurrentItem(), restrictedFlag)) {
+            if (event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY
+                    && ItemFlagStore.hasAny(plugin, event.getCurrentItem(), restrictedFlag)) {
                 event.setCancelled(true);
                 sendInventoryMessage(event, restrictedFlag);
                 return;
@@ -203,19 +259,23 @@ public final class ItemBehaviorListener implements Listener {
             }
         }
 
-        if (isEquipmentSlot(event.getSlotType()) && ItemFlagStore.hasAny(plugin, event.getCursor(), ItemBehaviorFlag.NO_EQUIP)) {
+        if (isEquipmentSlot(event.getSlotType())
+                && ItemFlagStore.hasAny(plugin, event.getCursor(), ItemBehaviorFlag.NO_EQUIP)) {
             event.setCancelled(true);
             event.getWhoClicked().sendMessage(plugin.language().message("blocked-equip"));
             return;
         }
 
-        if (isEquipmentSlot(event.getSlotType()) && ItemFlagStore.hasAny(plugin, event.getCurrentItem(), ItemBehaviorFlag.NO_EQUIP)) {
+        if (isEquipmentSlot(event.getSlotType())
+                && ItemFlagStore.hasAny(plugin, event.getCurrentItem(), ItemBehaviorFlag.NO_EQUIP)) {
             event.setCancelled(true);
             event.getWhoClicked().sendMessage(plugin.language().message("blocked-equip"));
             return;
         }
 
-        if (event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY && ItemFlagStore.hasAny(plugin, event.getCurrentItem(), ItemBehaviorFlag.NO_EQUIP) && isEquippable(event.getCurrentItem())) {
+        if (event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY
+                && ItemFlagStore.hasAny(plugin, event.getCurrentItem(), ItemBehaviorFlag.NO_EQUIP)
+                && isEquippable(event.getCurrentItem())) {
             event.setCancelled(true);
             event.getWhoClicked().sendMessage(plugin.language().message("blocked-equip"));
         }
@@ -225,27 +285,25 @@ public final class ItemBehaviorListener implements Listener {
     public void onInventoryDrag(InventoryDragEvent event) {
         InventoryType topType = event.getView().getTopInventory().getType();
         ItemBehaviorFlag restrictedFlag = inventoryFlag(topType);
-        if (restrictedFlag == null) {
+        if (restrictedFlag == null)
             return;
-        }
         ItemStack dragged = event.getOldCursor();
-        if (dragged == null) {
+        if (dragged == null)
             return;
-        }
         if (hasTopInventorySlot(event, restrictedFlag, dragged)) {
             event.setCancelled(true);
             sendDragMessage(event, restrictedFlag);
         }
     }
 
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
     private boolean containsFlag(ItemStack[] items, ItemBehaviorFlag... flags) {
-        if (items == null || items.length == 0) {
+        if (items == null || items.length == 0)
             return false;
-        }
         for (ItemStack item : items) {
-            if (ItemFlagStore.hasAny(plugin, item, flags)) {
+            if (ItemFlagStore.hasAny(plugin, item, flags))
                 return true;
-            }
         }
         return false;
     }
@@ -271,17 +329,12 @@ public final class ItemBehaviorListener implements Listener {
     }
 
     private boolean isEquippable(ItemStack item) {
-        if (item == null) {
+        if (item == null)
             return false;
-        }
-        Material type = item.getType();
-        String name = type.name();
-        return name.endsWith("_HELMET")
-            || name.endsWith("_CHESTPLATE")
-            || name.endsWith("_LEGGINGS")
-            || name.endsWith("_BOOTS")
-            || "ELYTRA".equals(name)
-            || "SHIELD".equals(name);
+        String name = item.getType().name();
+        return name.endsWith("_HELMET") || name.endsWith("_CHESTPLATE")
+                || name.endsWith("_LEGGINGS") || name.endsWith("_BOOTS")
+                || "ELYTRA".equals(name) || "SHIELD".equals(name);
     }
 
     private void sendInventoryMessage(InventoryClickEvent event, ItemBehaviorFlag flag) {
@@ -305,13 +358,11 @@ public final class ItemBehaviorListener implements Listener {
     private boolean hasTopInventorySlot(InventoryDragEvent event, ItemBehaviorFlag restrictedFlag, ItemStack dragged) {
         Inventory top = event.getView().getTopInventory();
         int topSize = top.getSize();
-        if (!ItemFlagStore.hasAny(plugin, dragged, restrictedFlag)) {
+        if (!ItemFlagStore.hasAny(plugin, dragged, restrictedFlag))
             return false;
-        }
         for (int rawSlot : event.getRawSlots()) {
-            if (rawSlot >= 0 && rawSlot < topSize) {
+            if (rawSlot >= 0 && rawSlot < topSize)
                 return true;
-            }
         }
         return false;
     }

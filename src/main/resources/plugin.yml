@@ -9,7 +9,7 @@ softdepend: [PlaceholderAPI]
 commands:
   zmitemsbuilder:
     description: Main command for zMItemsBuilder.
-    usage: /zmitems <create|reload|material|info|lore|enchant|rename|migrate|item>
+    usage: /zmitems <create|reload|material|info|lore|enchant|rename|migrate|item|attribute|progression>
     aliases: [zmitems, zmib]
     permission: zmitemsbuilder.use
   irename:
@@ -65,4 +65,13 @@ permissions:
     default: op
   zmitemsbuilder.armortrim:
     description: Allows applying or removing armor trims on the held item.
+    default: op
+  zmitemsbuilder.clone:
+    description: Allows cloning any held item into items.yml.
+    default: op
+  zmitemsbuilder.progression:
+    description: Allows configuring progression rules for enchantments and attributes.
+    default: op
+  zmitemsbuilder.attribute:
+    description: Allows adding and removing attributes from items.
     default: op

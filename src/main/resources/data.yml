@@ -1,0 +1,41 @@
+# This file stores persistent item configurations such as passive effects,
+# click actions, cooldowns, and usages.
+
+items:
+  offhand_speed:
+    effects:
+      speed:
+        type: SPEED
+        duration: 200
+        amplifier: 1
+        slot: OFF_HAND
+  addam_apple:
+    cooldown: 5
+    uses: 3
+    actions:
+      '0':
+        type: sound
+        value: BLOCK_LAVA_POP
+        click: RIGHT_CLICK
+      '1':
+        type: console_command
+        value: minecraft:effect give %player% minecraft:speed 30 1
+        click: RIGHT_CLICK
+      '2':
+        type: console_command
+        value: minecraft:effect give %player% minecraft:strength 30 1
+        click: RIGHT_CLICK
+      '3':
+        type: console_command
+        value: minecraft:effect give %player% minecraft:fire_resistance 60 1
+        click: RIGHT_CLICK
+  artifact_god:
+    effects:
+      speed:
+        type: SPEED
+        amplifier: 0
+        slot: OFF_HAND
+      increase_damage:
+        type: INCREASE_DAMAGE
+        amplifier: 0
+        slot: OFF_HAND

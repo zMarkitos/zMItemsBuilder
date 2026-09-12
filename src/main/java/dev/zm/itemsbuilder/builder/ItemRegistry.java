@@ -61,7 +61,7 @@ public final class ItemRegistry {
         kits.clear();
         items.clear();
 
-        ConfigurationSection itemsRoot = plugin.getConfig().getConfigurationSection("items");
+        ConfigurationSection itemsRoot = plugin.itemsConfig().getItemsSection();
         if (itemsRoot != null) {
             for (String key : itemsRoot.getKeys(false)) {
                 ConfigurationSection section = itemsRoot.getConfigurationSection(key);
@@ -73,7 +73,7 @@ public final class ItemRegistry {
             }
         }
 
-        ConfigurationSection root = plugin.getConfig().getConfigurationSection("kits");
+        ConfigurationSection root = plugin.itemsConfig().getGroupsSection();
         if (root == null) {
             return;
         }
@@ -178,7 +178,7 @@ public final class ItemRegistry {
                 false,
                 false,
                 null,
-                null,  // no explicit id_item
+                null, // no explicit id_item
                 itemId, // sourceKey always set
                 List.of(),
                 List.of(),
@@ -196,7 +196,8 @@ public final class ItemRegistry {
         if ((mode == ItemMode.ARMOR_SET || mode == ItemMode.TOOL_SET)
                 && (baseMaterial == null || baseMaterial.isBlank())
                 && material != null && !material.isBlank()) {
-            // For set modes, allow `material:` to be used as the base material to reduce config confusion.
+            // For set modes, allow `material:` to be used as the base material to reduce
+            // config confusion.
             baseMaterial = material;
         }
         String headTextureKey = section.getString("head", section.getString("head-texture"));
@@ -250,9 +251,11 @@ public final class ItemRegistry {
                 attributes);
     }
 
-    /** Returns the explicit id_item value from config, or null when not configured. */
+    /**
+     * Returns the explicit id_item value from config, or null when not configured.
+     */
     private String resolveExplicitItemId(ConfigurationSection section) {
-        for (String key : new String[]{"id_item", "id-item", "idItem"}) {
+        for (String key : new String[] { "id_item", "id-item", "idItem" }) {
             String raw = section.getString(key);
             if (raw != null && !raw.trim().isEmpty()) {
                 return raw.trim().toLowerCase(Locale.ROOT);
@@ -341,7 +344,7 @@ public final class ItemRegistry {
 
         // Preferred simple format:
         // enchant-slots:
-        //   protection: HELMET
+        // protection: HELMET
         ConfigurationSection directSlots = itemSection.getConfigurationSection("enchant-slots");
         if (directSlots != null) {
             for (String enchantKey : directSlots.getKeys(false)) {
@@ -355,9 +358,9 @@ public final class ItemRegistry {
 
         // Backward compatibility format:
         // enchants:
-        //   protection:
-        //     value: 10
-        //     slot: HELMET
+        // protection:
+        // value: 10
+        // slot: HELMET
         ConfigurationSection enchantsSection = itemSection.getConfigurationSection("enchants");
         if (enchantsSection != null) {
             for (String enchantKey : enchantsSection.getKeys(false)) {

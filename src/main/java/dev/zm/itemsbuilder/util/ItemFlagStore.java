@@ -19,11 +19,16 @@ public final class ItemFlagStore {
     }
 
     public static void write(JavaPlugin plugin, ItemMeta meta, Set<ItemBehaviorFlag> flags) {
-        if (plugin == null || meta == null || flags == null || flags.isEmpty()) {
+        if (plugin == null || meta == null || flags == null) {
             return;
         }
         PersistentDataContainer container = meta.getPersistentDataContainer();
-        container.set(key(plugin, KEY_NAME_V2), PersistentDataType.INTEGER, toMask(flags));
+        if (flags.isEmpty()) {
+            container.remove(key(plugin, KEY_NAME_V2));
+            container.remove(key(plugin, KEY_NAME_V1));
+        } else {
+            container.set(key(plugin, KEY_NAME_V2), PersistentDataType.INTEGER, toMask(flags));
+        }
     }
 
     public static boolean hasAny(JavaPlugin plugin, ItemStack item, ItemBehaviorFlag... flags) {

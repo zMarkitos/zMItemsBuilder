@@ -1,0 +1,431 @@
+# ==========================================================
+#  zMItemsBuilder — Items Configuration
+# ==========================================================
+#
+#  This file defines every custom item, group, rarity and
+#  visual template used by zMItemsBuilder.
+#
+#  Items are loaded automatically when the server starts
+#  and whenever the plugin is reloaded.
+#
+#  Documentation & syntax reference:
+#    https://zmarkitos.gitbook.io/zmitemsbuilder
+#
+# ==========================================================
+
+# Internal version (DO NOT MODIFY)
+items-version: 1
+
+raritys:
+  special: "★★★&7★★"
+  objects: "★★★★&7★"
+  levels: ""
+
+esthetic:
+  name-template: "&f{item_type} &8▸ {prefix_item}"
+  enchant-format: "   {primary_color}• &f{enchant_name} {secondary_color}{level}"
+  lore-template:
+    - "&7"
+    - " {primary_color}&l🕮&r {primary_color}Enchantments:"
+    - "{enchants}"
+    - "&7"
+    - " {primary_color}⌛ &fRarity: {primary_color}{rarity}"
+    - "&7"
+
+heads-texture:
+  special: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZWFlZDUyYTA0ZWRmYzQyOTU5MGMyMWQ1OWQ1MDA1ZTNiYTYyODY2YzUyYWVkODk1ZjFiZTk0ZDdmNjQyYTAxMyJ9fX0="
+  level_1: ""
+
+items:
+  special_head:
+    mode: single
+    material: PLAYER_HEAD
+    display-type: "Casco"
+    name: "&f{item_type} &8▸ {prefix_item}"
+    lore:
+      - ""
+      - " {gradient:🕮 Enchantments:}"
+      - "{enchants}"
+      - ""
+      - " {gradient:⚡ Abilities:}"
+      - "   {primary_color}&l•&r &fExtra hearts {secondary_color}+{attribute_level:max_health}"
+      - "   {primary_color}&l•&r &fSpeed level {secondary_color}+{attribute_level:speed}"
+      - ""
+      - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
+      - ""
+      - " {primary_color}₪ &fObtain this by buying"
+      - " &fit at {secondary_color}store.servername.net&f."
+    enchants:
+      protection: 10
+      unbreaking: 5
+      mending: 5
+    item-flags:
+      - HIDE_ENCHANTS
+      - HIDE_ALL
+    behavior-flags:
+      - NO_PLACE
+    attributes:
+      armor:
+        attribute: ARMOR
+        amount: 3
+        operation: ADD_NUMBER
+        slot: HELMET
+      max_health:
+        attribute: MAX_HEALTH
+        amount:
+          base: 10.0
+          per-level: 2.0
+          max: 30.0
+        operation: ADD_NUMBER
+        slot: HELMET
+      speed:
+        attribute: MOVEMENT_SPEED
+        amount:
+          base: 0.02
+          per-level: 0.01
+          max: 0.05
+        operation: ADD_NUMBER
+        slot: HELMET
+
+  special_armor:
+    mode: armor
+    material: NETHERITE
+    pieces: [helmet, chestplate, leggings, boots]
+    name: "&f{item_type} &8▸ {prefix_item}"
+    lore:
+      - ""
+      - " {gradient:🕮 Enchantments:}"
+      - "{enchants}"
+      - ""
+      - " {gradient:⚡ Abilities:}"
+      - "   {primary_color}&l•&r &fExtra hearts {secondary_color}+{attribute_level:max_health}"
+      - "   {primary_color}&l•&r &fStrength level {secondary_color}+{attribute_level:strength}"
+      - "   {primary_color}&l•&r &fSpeed level {secondary_color}+{attribute_level:speed}"
+      - "   {primary_color}&l•&r &fResistance level {secondary_color}+{attribute_level:resistance}"
+      - ""
+      - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
+      - ""
+      - " {primary_color}₪ &fObtain this by buying"
+      - " &fit at {secondary_color}store.servername.net&f."
+    enchants:
+      protection: 10
+      unbreaking: 5
+      mending: 5
+    enchant-slots:
+      protection: ALL
+    item-flags:
+      - HIDE_ENCHANTS
+    behavior-flags: []
+    attributes:
+      max_health:
+        attribute: MAX_HEALTH
+        amount: 10.0
+        operation: ADD_NUMBER
+        slot: ALL
+      strength:
+        attribute: ATTACK_DAMAGE
+        amount: 0.02
+        operation: ADD_NUMBER
+        slot: ANY
+      speed:
+        attribute: MOVEMENT_SPEED
+        amount: 0.02
+        operation: ADD_NUMBER
+        slot: LEGGINGS
+      resistance:
+        attribute: KNOCKBACK_RESISTANCE
+        amount: 0.02
+        operation: ADD_NUMBER
+        slot: CHESTPLATE
+
+  special_tools:
+    mode: tools
+    material: NETHERITE
+    pieces: [axe, hoe, shovel]
+    name: "&f{item_type} &8▸ {prefix_item}"
+    lore:
+      - ""
+      - " {gradient:🕮 Enchantments:}"
+      - "{enchants}"
+      - ""
+      - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
+      - ""
+      - " {primary_color}₪ &fObtain this by buying"
+      - " &fit at {secondary_color}store.servername.net&f."
+    enchants:
+      efficiency: 10
+      unbreaking: 5
+      mending: 3
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    behavior-flags: []
+
+  special_sword:
+    mode: single
+    material: NETHERITE_SWORD
+    name: "&f{item_type} &8▸ {prefix_item}"
+    lore:
+      - ""
+      - " {gradient:🕮 Enchantments:}"
+      - "{enchants}"
+      - ""
+      - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
+      - ""
+      - " {primary_color}₪ &fObtain this by buying"
+      - " &fit at {secondary_color}store.servername.net&f."
+    unbreakable: true
+    enchants:
+      sharpness: 8
+      looting: 5
+      sweeping_edge: 3
+      fire_aspect: 2
+      unbreaking: 5
+      mending: 5
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    behavior-flags: []
+
+  special_pickaxe:
+    mode: single
+    material: NETHERITE_PICKAXE
+    name: "&f{item_type} &8▸ {prefix_item}"
+    lore:
+      - ""
+      - " {gradient:🕮 Enchantments:}"
+      - "{enchants}"
+      - ""
+      - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
+      - ""
+      - " {primary_color}₪ &fObtain this by buying"
+      - " &fit at {secondary_color}store.servername.net&f."
+    enchants:
+      efficiency: 10
+      fortune: 3
+      unbreaking: 5
+      mending: 3
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    behavior-flags: []
+
+  special_elixir:
+    mode: single
+    material: POTION
+    display-type: "Elixir"
+    name: "&f{item_type} &8▸ &l{gradient:SPECIAL}"
+    lore:
+      - ""
+      - " {gradient:⚡ Effects on consumption:}"
+      - "   {primary_color}&l•&r &fRegeneration {effect_level:regen} {secondary_color}({effect_duration:regen})"
+      - "   {primary_color}&l•&r &fStrength {effect_level:strength} {secondary_color}({effect_duration:strength})"
+      - "   {primary_color}&l•&r &fAbsorption {effect_level:absorp} {secondary_color}({effect_duration:absorp})"
+      - ""
+      - " {gradient:⌛ Rarity:} {secondary_color}{rarity}"
+      - ""
+      - " {primary_color}₪ &fDrink to heal rapidly!"
+    glow: true
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    potion-effects:
+      regen:
+        type: REGENERATION
+        duration: 10
+        amplifier: 2
+      absorp:
+        type: ABSORPTION
+        duration: 120
+        amplifier: 1
+      strength:
+        type: STRENGTH
+        duration: 10
+        amplifier: 2
+
+  levels_set:
+    mode: armor
+    material: NETHERITE
+    pieces: [helmet, chestplate, leggings, boots]
+    name: "&f{item_type} &8▸ {prefix_item} {level}"
+    lore:
+      - ""
+      - " {gradient:🕮 Enchantments:}"
+      - "{enchants}"
+    unbreakable: true
+    enchants:
+      protection:
+        base: 4
+        per-level: 1
+        max: 10
+      fire_protection:
+        base: 1
+        every: 3
+        bonus: 1
+        max: 4
+      blast_protection:
+        base: 1
+        every: 3
+        bonus: 1
+        max: 4
+      projectile_protection:
+        base: 1
+        every: 3
+        bonus: 1
+        max: 4
+      mending: 1
+
+  special_key:
+    mode: single
+    material: RED_DYE
+    display-type: "Key"
+    id_item: "key_special"
+    custom-model-data: 1001
+    name: "&f{item_type} &8▸ &l{gradient:SPECIAL}"
+    lore:
+      - "&8[ REWARDS 2026 ]"
+      - ""
+      - " {primary_color}✉ What is it for?"
+      - "  {primary_color}• &fUse it to receive"
+      - "  {primary_color}• &fgreat items."
+      - ""
+      - " {primary_color}✉ Where do I use it?"
+      - "  {primary_color}• &fTrade this key at"
+      - "  {primary_color}• &fcrate /warp crates."
+      - ""
+      - " {primary_color}⌛ &fRarity: {secondary_color}{rarity}"
+      - ""
+      - "{primary_color}Click the crate!"
+    glow: true
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    behavior-flags:
+      - NO_CRAFT
+      - NO_USE
+
+  special_coin:
+    mode: single
+    material: REDSTONE_BLOCK
+    display-type: "Coin"
+    id_item: "coin_special"
+    name: "&f{item_type} &8▸ &l{gradient:SPECIAL}"
+    lore:
+      - "&8[ REWARDS 2026 ]"
+      - ""
+      - " {primary_color}✉ What is it for?"
+      - "  {primary_color}• &fUse it to improve"
+      - "  {primary_color}• &fall your items."
+      - ""
+      - " {primary_color}✉ Where do I use it?"
+      - "  {primary_color}• &fTrade this coin at"
+      - "  {primary_color}• &f/warp trades."
+      - ""
+      - " {primary_color}⌛ &fRarity: {secondary_color}{rarity}"
+      - ""
+      - "{primary_color}Click the crate!"
+    amount: 16
+    custom-model-data: 1002
+    glow: true
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    behavior-flags:
+      - NO_PLACE
+      - NO_CRAFT
+
+  offhand:
+    mode: single
+    material: FEATHER
+    display-type: Artifact
+    id_item: artifact_god
+    name: "&f{item_type} &8▸ &l{gradient:GOD}"
+    lore:
+      - "&8[ OFFHAND ARTIFACT ]"
+      - ""
+      - " {primary_color}⚡ Passive Effect:"
+      - "  {primary_color}• &fSpeed II"
+      - "  {primary_color}• &fStrength II"
+      - ""
+      - " {primary_color}✉ How to use?"
+      - "  {primary_color}• &fHold this item in your"
+      - "  {primary_color}• &foffhand to run faster!"
+    glow: true
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    behavior-flags:
+      - NO_CRAFT
+      - NO_DROP
+
+  adam_apple:
+    mode: single
+    material: APPLE
+    display-type: Adam
+    id_item: addam_apple
+    name: "&f{item_type} &8▸ &l{gradient:APPLE}"
+    lore:
+      - ""
+      - " {primary_color}⚡ Special effects:"
+      - "  {primary_color}• &fSpeed II &7[30s]"
+      - "  {primary_color}• &fStrength II &7[30s]"
+      - "  {primary_color}• &fFire Resistance II &7[60s]"
+      - ""
+      - " {primary_color}✉ Information:"
+      - "  {primary_color}| &fUses: {secondary_color}{uses}&7/{secondary_color}{max_uses}"
+      - "  {primary_color}| &fCooldown: {secondary_color}5s"
+      - ""
+    glow: true
+    item-flags:
+      - HIDE_ATTRIBUTES
+      - HIDE_ENCHANTS
+    behavior-flags:
+      - NO_CRAFT
+
+groups:
+  extra:
+    items:
+      - adam_apple
+      - offhand
+
+  special:
+    rarity: special
+    head: special
+    items:
+      - special_head
+      - special_armor
+      - special_tools
+      - special_sword
+      - special_pickaxe
+      - special_elixir
+
+  objects_group:
+    rarity: objects
+    level: 1
+    items:
+      - special_key
+      - special_coin
+
+  level_1:
+    rarity: levels
+    level: 1
+    items:
+      - levels_set
+
+  level_2:
+    rarity: levels
+    level: 2
+    items:
+      - levels_set
+
+  level_3:
+    rarity: levels
+    level: 3
+    items:
+      - levels_set
+
+  level_4:
+    rarity: levels
+    level: 4
+    items:
+      - levels_set

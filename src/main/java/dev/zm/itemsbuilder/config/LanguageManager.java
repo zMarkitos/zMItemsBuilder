@@ -13,6 +13,7 @@ import java.util.List;
 import net.kyori.adventure.text.Component;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
+import org.jetbrains.annotations.NotNull;
 
 public final class LanguageManager {
 
@@ -35,7 +36,8 @@ public final class LanguageManager {
     public void reload() {
         loadedLanguages.clear();
         File langFolder = new File(plugin.getDataFolder(), "lang");
-        File[] files = langFolder.listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).startsWith("lang_") && name.toLowerCase(Locale.ROOT).endsWith(".yml"));
+        File[] files = langFolder.listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).startsWith("lang_")
+                && name.toLowerCase(Locale.ROOT).endsWith(".yml"));
         if (files != null) {
             for (File file : files) {
                 String name = file.getName().toLowerCase(Locale.ROOT);
@@ -44,24 +46,23 @@ public final class LanguageManager {
             }
         }
         this.languageConfig = loadedLanguages.getOrDefault(
-            currentLanguageCode,
-            loadedLanguages.getOrDefault("ES", new YamlConfiguration())
-        );
+                currentLanguageCode,
+                loadedLanguages.getOrDefault("ES", new YamlConfiguration()));
         this.messagePrefix = this.languageConfig.getString("messages.prefix", "");
         this.messagePrefixComponent = messagePrefix == null || messagePrefix.isBlank()
-            ? Component.empty()
-            : TextUtils.toComponent(messagePrefix);
+                ? Component.empty()
+                : TextUtils.toComponent(messagePrefix);
     }
 
     public Component message(String key) {
         return message(key, Collections.emptyMap());
     }
 
-    public Component message(String key, Map<String, String> placeholders) {
+    public @NotNull Component message(String key, Map<String, String> placeholders) {
         Component body = rawMessage("messages." + key, placeholders);
         return messagePrefix == null || messagePrefix.isBlank()
-            ? body
-            : messagePrefixComponent.append(body);
+                ? body
+                : messagePrefixComponent.append(body);
     }
 
     public Component rawMessage(String path, Map<String, String> placeholders) {
@@ -85,6 +86,10 @@ public final class LanguageManager {
             components.add(TextUtils.toComponent(replaced));
         }
         return components;
+    }
+
+    public List<String> getStringList(String path) {
+        return languageConfig.getStringList(path);
     }
 
     public String enchantName(String key) {

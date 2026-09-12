@@ -121,9 +121,11 @@ public final class ItemFactory {
         addEffectPlaceholders(placeholders, resolvedEffects, plugin.settings().useRomanNumerals());
         String displayNameTemplate = definition.displayName();
         if (displayNameTemplate == null || displayNameTemplate.isBlank()) {
-            displayNameTemplate = plugin.getConfig().getString(
-                    "display.name-template",
-                    plugin.getConfig().getString("esthetic.name-format", "{item_type}"));
+            org.bukkit.configuration.ConfigurationSection esthetic = plugin.itemsConfig().getEstheticSection();
+            displayNameTemplate = esthetic != null
+                    ? esthetic.getString("name-template",
+                            esthetic.getString("name-format", "{primary_color}{item_type}"))
+                    : "{primary_color}{item_type}";
         }
         String resolvedDisplayName = applyGradients(
                 PlaceholderUtils.replace(displayNameTemplate, placeholders,
@@ -148,6 +150,24 @@ public final class ItemFactory {
         applyItemFlags(meta, definition.itemFlags());
 
         item.setItemMeta(meta);
+
+        if (definition.itemIdentifier() != null) {
+            int maxUses = plugin.itemDataStore().getMaxUses(definition.itemIdentifier());
+            if (maxUses > 0) {
+                dev.zm.itemsbuilder.listener.ItemActionListener actionListener =
+                        plugin.itemActionListener();
+                if (actionListener != null) {
+                    List<dev.zm.itemsbuilder.listener.ItemActionListener.LoreTemplateLine> templates =
+                            actionListener.detectLoreTemplates(item);
+                    if (templates.isEmpty()) {
+                        actionListener.stampUses(item, maxUses);
+                    } else {
+                        actionListener.stampUsesWithLore(item, maxUses, templates);
+                    }
+                }
+            }
+        }
+
         return item;
     }
 
@@ -348,8 +368,9 @@ public final class ItemFactory {
         if (definition.headBase64() != null && !definition.headBase64().isBlank()) {
             return definition.headBase64();
         }
+        org.bukkit.configuration.ConfigurationSection heads = plugin.itemsConfig().getHeadsTextureSection();
         if (definition.headTextureKey() != null && !definition.headTextureKey().isBlank()) {
-            String configured = plugin.getConfig().getString("heads-texture." + definition.headTextureKey());
+            String configured = heads != null ? heads.getString(definition.headTextureKey()) : null;
             if (configured != null && !configured.isBlank()) {
                 return configured;
             }
@@ -361,7 +382,7 @@ public final class ItemFactory {
             return looksLikeBase64(raw) ? raw : null;
         }
         if (context.headTextureKey() != null && !context.headTextureKey().isBlank()) {
-            String configured = plugin.getConfig().getString("heads-texture." + context.headTextureKey());
+            String configured = heads != null ? heads.getString(context.headTextureKey()) : null;
             if (configured != null && !configured.isBlank()) {
                 return configured;
             }
@@ -374,7 +395,7 @@ public final class ItemFactory {
 
         // Intuitive fallback: if `heads-texture.<kitId>` exists, use it without forcing
         // `kits.<kit>.head`.
-        String byKitId = plugin.getConfig().getString("heads-texture." + context.kitId());
+        String byKitId = heads != null ? heads.getString(context.kitId()) : null;
         if (byKitId != null && !byKitId.isBlank()) {
             return byKitId;
         }
@@ -589,15 +610,13 @@ public final class ItemFactory {
             return List.of();
         }
 
-        List<String> template = definition.loreDefined()
-                ? definition.lore()
-                : plugin.getConfig().getStringList("display.lore-template");
-        if (template.isEmpty()) {
-            template = plugin.getConfig().getStringList("esthetic.lore-template");
+        org.bukkit.configuration.ConfigurationSection esthetic = plugin.itemsConfig().getEstheticSection();
+        List<String> template = definition.loreDefined() ? definition.lore() : null;
+        if (template == null || template.isEmpty()) {
+            template = esthetic != null ? esthetic.getStringList("lore-template") : List.of();
         }
-        String enchantTemplate = plugin.getConfig().getString(
-                "display.enchant-format",
-                plugin.getConfig().getString("esthetic.enchant-format", "{enchant_name} {level}"));
+        String enchantTemplate = esthetic != null ? esthetic.getString("enchant-format", "{enchant_name} {level}")
+                : "{enchant_name} {level}";
         boolean useRomanNumerals = plugin.settings().useRomanNumerals();
         boolean useRarity = plugin.getConfig().getBoolean(
                 "settings.use-rarity",
@@ -650,15 +669,27 @@ public final class ItemFactory {
     private Map<String, String> basePlaceholders(Material material, ItemDefinition definition, ItemBuildContext context,
             String pieceKey) {
         Map<String, String> placeholders = new LinkedHashMap<>();
+
+        String primary = (context.primaryHex() != null && !context.primaryHex().isEmpty())
+                ? stripLeadingHash(context.primaryHex())
+                : "FDFF5C";
+        String secondary = (context.secondaryHex() != null && !context.secondaryHex().isEmpty())
+                ? stripLeadingHash(context.secondaryHex())
+                : "FEFF91";
+
+        String rarityText = context.rarityText();
+        placeholders.put("rarity", rarityText == null ? "" : rarityText);
+
         placeholders.put("kit", context.kitId());
         placeholders.put("level", TextUtils.formatLevel(context.level(), plugin.settings().useRomanNumerals()));
-        placeholders.put("prefix_item", context.prefixMiniMessage());
-        placeholders.put("prefix_kit", context.prefixMiniMessage());
-        placeholders.put("primary_color", "<#" + context.primaryHex() + ">");
-        placeholders.put("secondary_color", "<#" + context.secondaryHex() + ">");
-        placeholders.put("color_principal", "<#" + context.primaryHex() + ">");
-        placeholders.put("color_secundario", "<#" + context.secondaryHex() + ">");
-        placeholders.put("rarity", TextUtils.toMiniMessage(context.rarityText()));
+        placeholders.put("prefix_item", context.prefixMiniMessage() != null ? context.prefixMiniMessage() : "");
+        placeholders.put("prefix_kit", context.prefixMiniMessage() != null ? context.prefixMiniMessage() : "");
+
+        placeholders.put("primary_color", "<#" + primary + ">");
+        placeholders.put("secondary_color", "<#" + secondary + ">");
+        placeholders.put("color_principal", "<#" + primary + ">");
+        placeholders.put("color_secundario", "<#" + secondary + ">");
+
         placeholders.put("item_id",
                 definition.itemIdentifier() == null ? definition.id() : definition.itemIdentifier());
         placeholders.put("item_mode", definition.mode().configKey());
@@ -862,6 +893,11 @@ public final class ItemFactory {
                 return new AttributeModifier(id, name, amount, operation);
             }
         }
+    }
+
+    private static String stripLeadingHash(String hex) {
+        if (hex == null) return "";
+        return hex.startsWith("#") ? hex.substring(1) : hex;
     }
 
     private enum ArmorPiece {

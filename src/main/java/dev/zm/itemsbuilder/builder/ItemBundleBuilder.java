@@ -19,6 +19,10 @@ public final class ItemBundleBuilder {
         this.itemFactory = itemFactory;
     }
 
+    public ItemFactory itemFactory() {
+        return itemFactory;
+    }
+
     /**
      * Builds all items in the kit for the given player.
      *
@@ -32,7 +36,10 @@ public final class ItemBundleBuilder {
             String secondaryHex,
             List<String> prefixGradientColors,
             OfflinePlayer player) {
-        String rarity = plugin.getConfig().getString("rarity." + kitDefinition.rarity(), kitDefinition.rarity());
+        org.bukkit.configuration.ConfigurationSection raritysSection = plugin.itemsConfig().getRaritysSection();
+        String rarity = raritysSection != null
+                ? raritysSection.getString(kitDefinition.rarity(), kitDefinition.rarity())
+                : kitDefinition.rarity();
         ItemBuildContext context = new ItemBuildContext(
                 kitDefinition.id(),
                 rarity,
@@ -49,7 +56,7 @@ public final class ItemBundleBuilder {
         for (String itemId : kitDefinition.itemIds()) {
             Optional<ItemDefinition> itemDefinition = plugin.itemRegistry().getItem(itemId);
             if (itemDefinition.isEmpty()) {
-                plugin.getLogger().warning("Item definition not found for kit '" + kitDefinition.id() + "': " + itemId);
+                plugin.getLogger().warning("Item definition not found for group '" + kitDefinition.id() + "': " + itemId);
                 continue;
             }
             items.addAll(itemFactory.create(itemDefinition.get(), context));

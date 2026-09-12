@@ -59,11 +59,24 @@ public final class LoreCopyWriter {
      * <li>If {@code kitId} is given, the item is added to that kit.</li>
      * </ul>
      */
-    public static CopyResult copyItemToConfig(zMItemsBuilder plugin,
-            ItemStack item, String itemId, String kitId) {
+    /**
+     * Clones the held item into {@code items.yml} under {@code items.<itemId>}.
+     * Uses the plugin's itemsConfig to save, NOT config.yml.
+     *
+     * <ul>
+     * <li>If {@code items.<itemId>} already exists → returns EXISTS.</li>
+     * <li>Otherwise → a full compatible entry is generated.</li>
+     * <li>The two most frequent hex colors are replaced with
+     * {@code {primary_color}} and {@code {secondary_color}} placeholders.</li>
+     * <li>If {@code groupId} is given, the item is added to that group.</li>
+     * </ul>
+     */
+    public static CopyResult cloneItemToItemsYml(zMItemsBuilder plugin,
+            ItemStack item, String itemId, String groupId) {
 
-        File configFile = new File(plugin.getDataFolder(), "config.yml");
-        FileConfiguration config = YamlConfiguration.loadConfiguration(configFile);
+        if (plugin.itemRegistry().getItem(itemId).isPresent()) {
+            return CopyResult.EXISTS;
+        }
 
         ItemMeta meta = item.getItemMeta();
 
@@ -85,26 +98,74 @@ public final class LoreCopyWriter {
         rawLore = processLines(rawLore, primaryHex, secondaryHex);
         rawName = processLine(rawName, primaryHex, secondaryHex);
 
-        String itemPath = "items." + itemId;
-        if (config.isConfigurationSection(itemPath)) {
-            return CopyResult.EXISTS;
+        // 5. Build entry map
+        java.util.Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("mode", "single");
+        String matName = item.getType().name();
+        data.put("material", matName);
+
+        if (!isKnownItemType(matName)) {
+            data.put("display-type", "Item");
         }
 
-        buildFullEntry(plugin, config, itemPath, item, meta, rawLore, rawName);
-
-        if (kitId != null && !kitId.isBlank()) {
-            appendToKit(config, kitId, itemId);
+        if (rawName != null && !rawName.isBlank()) {
+            data.put("name", rawName);
         }
 
-        try {
-            config.save(configFile);
-        } catch (IOException e) {
-            plugin.getLogger().severe("Failed to save config.yml after lore copy: " + e.getMessage());
+        if (!rawLore.isEmpty()) {
+            data.put("lore", rawLore);
+        }
+
+        if (meta != null) {
+            java.util.Map<org.bukkit.enchantments.Enchantment, Integer> enchants = meta.getEnchants();
+            if (!enchants.isEmpty()) {
+                java.util.Map<String, Object> enchantMap = new java.util.LinkedHashMap<>();
+                for (java.util.Map.Entry<org.bukkit.enchantments.Enchantment, Integer> e : enchants.entrySet()) {
+                    enchantMap.put(e.getKey().getKey().getKey(), e.getValue());
+                }
+                data.put("enchants", enchantMap);
+            }
+
+            Set<ItemFlag> flags = meta.getItemFlags();
+            if (!flags.isEmpty()) {
+                List<String> flagNames = new ArrayList<>(flags.size());
+                for (ItemFlag flag : flags) {
+                    flagNames.add(flag.name());
+                }
+                data.put("item-flags", flagNames);
+            }
+
+            Set<ItemBehaviorFlag> behaviorFlags = ItemFlagStore.read(plugin, item);
+            if (!behaviorFlags.isEmpty()) {
+                List<String> bfNames = new ArrayList<>(behaviorFlags.size());
+                for (ItemBehaviorFlag bf : behaviorFlags) {
+                    bfNames.add(bf.name());
+                }
+                data.put("behavior-flags", bfNames);
+            }
+
+            if (meta.hasCustomModelData()) {
+                data.put("custom-model-data", meta.getCustomModelData());
+            }
+
+            if (meta.isUnbreakable()) {
+                data.put("unbreakable", true);
+            }
+        }
+
+        boolean saved = plugin.itemsConfig().saveItemEntry(itemId, data);
+        if (!saved) {
             return CopyResult.FAILED;
+        }
+
+        // Add to group if requested
+        if (groupId != null && !groupId.isBlank()) {
+            plugin.itemsConfig().appendItemToGroup(groupId, itemId);
         }
 
         return CopyResult.CREATED;
     }
+
 
     /**
      * Returns the &-coded lore strings of {@code meta}, or an empty list if none.

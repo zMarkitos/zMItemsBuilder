@@ -4,9 +4,12 @@ import java.util.Locale;
 
 public final class MathExpression {
 
+    private static final int MAX_RECURSION_DEPTH = 50;
+
     private final String input;
     private final int level;
     private int index;
+    private int depth;
 
     private MathExpression(String input, int level) {
         this.input = input;
@@ -74,30 +77,37 @@ public final class MathExpression {
     }
 
     private double parseFactor() {
-        skipWhitespace();
-        if (match('+')) {
-            return parseFactor();
+        if (depth++ > MAX_RECURSION_DEPTH) {
+            throw new IllegalArgumentException("Expression too deeply nested (max " + MAX_RECURSION_DEPTH + " levels)");
         }
-        if (match('-')) {
-            return -parseFactor();
-        }
-        if (match('(')) {
-            double value = parseExpression();
-            expect(')');
-            return value;
-        }
-        if (isAlpha(peek())) {
-            String identifier = parseIdentifier();
+        try {
             skipWhitespace();
-            if (match('(')) {
-                return parseFunction(identifier);
+            if (match('+')) {
+                return parseFactor();
             }
-            return switch (identifier.toLowerCase(Locale.ROOT)) {
-                case "level" -> level;
-                default -> throw new IllegalArgumentException("Unknown variable: " + identifier);
-            };
+            if (match('-')) {
+                return -parseFactor();
+            }
+            if (match('(')) {
+                double value = parseExpression();
+                expect(')');
+                return value;
+            }
+            if (isAlpha(peek())) {
+                String identifier = parseIdentifier();
+                skipWhitespace();
+                if (match('(')) {
+                    return parseFunction(identifier);
+                }
+                return switch (identifier.toLowerCase(Locale.ROOT)) {
+                    case "level" -> level;
+                    default -> throw new IllegalArgumentException("Unknown variable: " + identifier);
+                };
+            }
+            return parseNumber();
+        } finally {
+            depth--;
         }
-        return parseNumber();
     }
 
     private double parseFunction(String name) {

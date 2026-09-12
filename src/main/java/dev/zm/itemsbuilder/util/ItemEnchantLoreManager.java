@@ -158,9 +158,8 @@ public final class ItemEnchantLoreManager {
     }
 
     private Component renderEnchantLine(ItemMeta meta, String enchantKey, int level) {
-        String enchantTemplate = plugin.getConfig().getString(
-                "display.enchant-format",
-                plugin.getConfig().getString("esthetic.enchant-format", "{enchant_name} {level}"));
+        org.bukkit.configuration.ConfigurationSection esthetic = plugin.itemsConfig().getEstheticSection();
+        String enchantTemplate = esthetic != null ? esthetic.getString("enchant-format", "{enchant_name} {level}") : "{enchant_name} {level}";
         String primaryHex = resolvePrefixPrimaryHex(meta);
         String secondaryHex = resolvePrefixSecondaryHex(meta);
 
@@ -268,7 +267,7 @@ public final class ItemEnchantLoreManager {
             }
             String plainLine = normalizePlain(lore.get(i));
             for (String enchantName : currentEnchantNames) {
-                if (!enchantName.isBlank() && plainLine.contains(enchantName)) {
+                if (!enchantName.isBlank() && matchesEnchantToken(plainLine, enchantName)) {
                     lastEnchantIndex = i;
                     break;
                 }
@@ -292,11 +291,10 @@ public final class ItemEnchantLoreManager {
             return -1;
         }
 
-        List<String> template = definition.get().loreDefined()
-                ? definition.get().lore()
-                : plugin.getConfig().getStringList("display.lore-template");
-        if (template.isEmpty()) {
-            template = plugin.getConfig().getStringList("esthetic.lore-template");
+        org.bukkit.configuration.ConfigurationSection esthetic = plugin.itemsConfig().getEstheticSection();
+        List<String> template = definition.get().loreDefined() ? definition.get().lore() : null;
+        if (template == null || template.isEmpty()) {
+            template = esthetic != null ? esthetic.getStringList("lore-template") : List.of();
         }
         if (template.isEmpty()) {
             return -1;
@@ -337,7 +335,7 @@ public final class ItemEnchantLoreManager {
                 continue;
             }
             String plainLine = normalizePlain(lore.get(i));
-            if (plainLine.contains(enchantDisplayName)) {
+            if (matchesEnchantToken(plainLine, enchantDisplayName)) {
                 indices.add(i);
             }
         }
@@ -351,7 +349,7 @@ public final class ItemEnchantLoreManager {
 
         for (int i = 0; i < lore.size(); i++) {
             String plainLine = normalizePlain(lore.get(i));
-            if (plainLine.contains(enchantDisplayName)) {
+            if (matchesEnchantToken(plainLine, enchantDisplayName)) {
                 indices.add(i);
             }
         }
@@ -424,6 +422,16 @@ public final class ItemEnchantLoreManager {
             return "";
         }
         return input.replaceAll("\\s+", " ").trim().toLowerCase(Locale.ROOT);
+    }
+
+    private boolean matchesEnchantToken(String plainLine, String enchantDisplayName) {
+        if (plainLine.isEmpty() || enchantDisplayName.isEmpty()) return false;
+        int idx = plainLine.indexOf(enchantDisplayName);
+        if (idx < 0) return false;
+        boolean startOk = idx == 0 || !Character.isLetterOrDigit(plainLine.charAt(idx - 1));
+        int endIdx = idx + enchantDisplayName.length();
+        boolean endOk = endIdx >= plainLine.length() || !Character.isLetterOrDigit(plainLine.charAt(endIdx));
+        return startOk && endOk;
     }
 
     private TextView buildTextView(String raw) {

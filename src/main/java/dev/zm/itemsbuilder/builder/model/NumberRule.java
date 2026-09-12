@@ -40,6 +40,38 @@ public final class NumberRule {
         this.max = max;
     }
 
+    public Double fixedValue() {
+        return fixedValue;
+    }
+
+    public String expression() {
+        return expression;
+    }
+
+    public Double base() {
+        return base;
+    }
+
+    public Double perLevel() {
+        return perLevel;
+    }
+
+    public Integer every() {
+        return every;
+    }
+
+    public Double bonus() {
+        return bonus;
+    }
+
+    public Double min() {
+        return min;
+    }
+
+    public Double max() {
+        return max;
+    }
+
     public static NumberRule fixed(double value) {
         return new NumberRule(value, null, null, null, null, null, null, null);
     }
